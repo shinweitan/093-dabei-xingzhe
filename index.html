@@ -29,6 +29,24 @@
             background: #F2EEE7;
         }
 
+        /* ── Mobile safe-area & dynamic viewport ── */
+        /* Respect iPhone notch / home-bar insets */
+        :root {
+            --sab: env(safe-area-inset-bottom, 0px);
+            --sat: env(safe-area-inset-top, 0px);
+        }
+
+        /* dvh: collapses with browser chrome so content never hides behind address bar */
+        .full-height {
+            height: 100vh;
+            height: 100dvh;
+        }
+
+        /* Scrollable areas need bottom padding equal to the home-bar height */
+        .safe-scroll-bottom {
+            padding-bottom: calc(5rem + var(--sab)) !important;
+        }
+
         input[type=number]::-webkit-inner-spin-button,
         input[type=number]::-webkit-outer-spin-button {
             -webkit-appearance: none;
@@ -102,6 +120,7 @@
         // ── SPIRITUAL CONTENT ────────────────────────────────────────────────────────
         const SHIFU_QUOTE = "只要一生中誦持大悲咒滿十萬遍，即能隨願往生任一佛國淨土。";
         const SHIFU_ATTR = "— 心道法師";
+        const WORLD_COUNT = 565;
 
         const TEN_HEARTS = [
             { zh: "大慈悲心", en: "Great Compassion", unlock: 1000, desc: "以無限慈悲，普願眾生離苦得樂" },
@@ -274,16 +293,16 @@
             return (
                 <div style={{ background: unlocked ? T.surface : T.surface2, borderRadius: 20, padding: "1rem 1.25rem", border: `1px solid ${unlocked ? T.gold : T.line}`, opacity: unlocked ? 1 : 0.55, animation: `fadeUp 0.4s ${idx * 0.05}s ease both`, display: "flex", alignItems: "center", gap: "1rem", marginBottom: "0.75rem" }}>
                     <div style={{ width: 44, height: 44, borderRadius: "50%", background: unlocked ? T.sacredGrad : T.accentSoft, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: unlocked ? "0 6px 18px rgba(184,136,42,0.2)" : "none" }}>
-                        {unlocked ? <span style={{ fontSize: "1.2rem" }}>✦</span> : <span style={{ fontSize: "0.8rem", color: T.text3 }}>🔒</span>}
+                        {unlocked ? <span style={{ fontSize: "1.2rem" }}>✦</span> : <span style={{ fontSize: "1rem", color: T.text3 }}>🔒</span>}
                     </div>
                     <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", alignItems: "baseline", gap: "0.6rem", marginBottom: "0.2rem" }}>
-                            <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "0.95rem", fontWeight: 500, color: unlocked ? T.text : T.text3 }}>{heart.zh}</span>
-                            <span style={{ fontSize: "0.65rem", color: T.text3, fontStyle: "italic" }}>{heart.en}</span>
+                            <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1.05rem", fontWeight: 500, color: unlocked ? T.text : T.text3 }}>{heart.zh}</span>
+                            <span style={{ fontSize: "1.05rem", color: T.text3, fontStyle: "italic" }}>{heart.en}</span>
                         </div>
                         {unlocked
-                            ? <div style={{ fontSize: "0.73rem", color: T.text2, lineHeight: 1.5 }}>{heart.desc}</div>
-                            : <div style={{ fontSize: "0.68rem", color: T.text3 }}>持誦達 {heart.unlock.toLocaleString()} 遍後解鎖</div>}
+                            ? <div style={{ fontSize: "0.92rem", color: T.text2, lineHeight: 1.5 }}>{heart.desc}</div>
+                            : <div style={{ fontSize: "1.05rem", color: T.text3 }}>持誦達 {heart.unlock.toLocaleString()} 遍後解鎖</div>}
                     </div>
                 </div>
             );
@@ -324,13 +343,13 @@
                             <LotusIcon size={38} />
                         </div>
                         <div style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "2rem", fontWeight: 500, letterSpacing: "0.4em", textAlign: "center", color: T.text }}>大悲行者</div>
-                        <div style={{ fontFamily: "'EB Garamond',serif", fontSize: "0.8rem", textAlign: "center", color: T.text3, letterSpacing: "0.2em", margin: "0.3rem 0 2rem" }}>靈鷲山 · 觀音法門</div>
+                        <div style={{ fontFamily: "'EB Garamond',serif", fontSize: "1rem", textAlign: "center", color: T.text3, letterSpacing: "0.2em", margin: "0.3rem 0 2rem" }}>靈鷲山 · 觀音法門</div>
                         <div style={{ background: T.goldPale, borderRadius: 20, padding: "1rem 1.25rem", marginBottom: "2rem", border: `1px solid ${T.goldSoft}` }}>
-                            <div style={{ fontSize: "0.75rem", color: T.text2, lineHeight: 1.8 }}>「{SHIFU_QUOTE}」</div>
-                            <div style={{ fontSize: "0.65rem", color: T.gold, textAlign: "right", marginTop: "0.3rem" }}>{SHIFU_ATTR}</div>
+                            <div style={{ fontSize: "1.05rem", color: T.text2, lineHeight: 1.8 }}>「{SHIFU_QUOTE}」</div>
+                            <div style={{ fontSize: "1.05rem", color: T.gold, textAlign: "right", marginTop: "0.3rem" }}>{SHIFU_ATTR}</div>
                         </div>
                         <div style={{ background: T.surface, borderRadius: 28, padding: "2rem 1.5rem", boxShadow: "0 12px 36px rgba(0,0,0,0.06)" }}>
-                            <div style={{ fontSize: "0.7rem", color: T.text2, letterSpacing: "0.12em", marginBottom: "0.6rem" }}>中文姓名</div>
+                            <div style={{ fontSize: "1rem", color: T.text2, letterSpacing: "0.12em", marginBottom: "0.6rem" }}>中文姓名</div>
                             <input
                                 value={name}
                                 onChange={e => { setName(e.target.value); setErr(""); }}
@@ -338,14 +357,14 @@
                                 placeholder="請輸入"
                                 style={{ width: "100%", padding: "0.9rem 1rem", border: `1px solid ${err ? "#C47070" : T.lineStrong}`, borderRadius: 16, background: T.bg, fontFamily: "'Noto Serif SC',serif", fontSize: "1rem", marginBottom: "0.8rem", color: T.text }}
                             />
-                            {err && <div style={{ fontSize: "0.7rem", color: "#8B2020", background: "#FDF1F1", padding: "0.6rem", borderRadius: 12, marginBottom: "1rem" }}>{err}</div>}
+                            {err && <div style={{ fontSize: "1rem", color: "#8B2020", background: "#FDF1F1", padding: "0.6rem", borderRadius: 12, marginBottom: "1rem" }}>{err}</div>}
                             <button onClick={() => doVerify()} disabled={loading} className="touch-btn" style={{ width: "100%", padding: "1rem", background: loading ? T.accentSoft : T.sacredGrad, color: loading ? T.accent : "#fff", border: "none", borderRadius: 40, fontWeight: 500, letterSpacing: "0.2em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
                                 {loading && <Spin size={14} />}
                                 {loading ? "驗證中…" : "踏入大悲之路"}
                             </button>
                         </div>
-                        <div style={{ textAlign: "center", marginTop: "2rem", fontSize: "0.6rem", color: T.text3, letterSpacing: "0.2em" }}>
-                            南無觀世音菩薩
+                        <div style={{ textAlign: "center", marginTop: "2rem", fontSize: "0.92rem", color: T.text3, letterSpacing: "0.2em" }}>
+                            全球 {WORLD_COUNT} 位大悲行者 · 南無觀世音菩薩
                         </div>
                     </div>
                 </div>
@@ -377,42 +396,42 @@
                                 <div style={{ width: 36, height: 36, borderRadius: "50%", background: T.sacredGrad, display: "flex", alignItems: "center", justifyContent: "center" }}><LotusIcon size={18} /></div>
                                 <div>
                                     <div style={{ fontFamily: "'Noto Serif SC',serif", fontWeight: 600 }}>{user.name}</div>
-                                    <div style={{ fontSize: "0.6rem", color: T.gold }}>{isXingZhe ? "✦ 大悲行者" : "行者之路"}</div>
+                                    <div style={{ fontSize: "0.92rem", color: T.gold }}>{isXingZhe ? "✦ 大悲行者" : "行者之路"}</div>
                                 </div>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                                 <SyncIndicator state={syncState} />
-                                <button onClick={onLogout} style={{ fontSize: "0.7rem", color: T.text3, background: "none", border: "none", textDecoration: "underline", cursor: "pointer" }}>切換</button>
+                                <button onClick={onLogout} style={{ fontSize: "1rem", color: T.text3, background: "none", border: "none", textDecoration: "underline", cursor: "pointer" }}>切換</button>
                             </div>
                         </div>
                     </div>
 
-                    <div style={{ maxWidth: 520, margin: "0 auto", padding: "1.5rem 1.25rem 6rem" }}>
+                    <div className="safe-scroll-bottom" style={{ maxWidth: 560, margin: "0 auto", padding: "1.5rem 1.25rem 6rem" }}>
                         {/* Shifu Quote */}
                         <div style={{ background: T.goldPale, borderRadius: 20, padding: "1rem", marginBottom: "1.25rem", animation: "fadeUp 0.4s ease both", border: `1px solid ${T.goldSoft}` }}>
-                            <div style={{ fontSize: "0.7rem", lineHeight: 1.8, color: T.text2 }}>「{SHIFU_QUOTE}」</div>
-                            <div style={{ fontSize: "0.6rem", textAlign: "right", color: T.gold }}>{SHIFU_ATTR}</div>
+                            <div style={{ fontSize: "1rem", lineHeight: 1.8, color: T.text2 }}>「{SHIFU_QUOTE}」</div>
+                            <div style={{ fontSize: "0.92rem", textAlign: "right", color: T.gold }}>{SHIFU_ATTR}</div>
                         </div>
 
                         {/* Hero grand total */}
                         <div style={{ background: T.surface, borderRadius: 32, padding: "1.8rem", marginBottom: "1.25rem", boxShadow: "0 6px 24px rgba(0,0,0,0.04)", animation: "fadeUp 0.4s 0.05s ease both" }}>
                             {me ? <>
-                                <div style={{ fontSize: "0.7rem", color: T.text3, marginBottom: "0.3rem" }}>
+                                <div style={{ fontSize: "1rem", color: T.text3, marginBottom: "0.3rem" }}>
                                     發願 <span style={{ color: T.accent }}>{me.vowYears}年</span> 持滿 <span style={{ color: T.accent }}>{(me.target || 0).toLocaleString()}遍</span>
                                 </div>
                                 <div style={{ fontSize: "2.8rem", fontWeight: 700, fontFamily: "'Noto Serif SC',serif", letterSpacing: "-2px" }}>
                                     <AnimNum value={gt} dur={800} />
                                 </div>
-                                <div style={{ fontSize: "0.7rem", color: T.text3, marginBottom: "1rem" }}>
+                                <div style={{ fontSize: "1rem", color: T.text3, marginBottom: "1rem" }}>
                                     已持誦 / 目標 {tg.toLocaleString()}
                                 </div>
                                 <PBar pct={pct} />
                                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.6rem" }}>
-                                    <span style={{ fontSize: "0.65rem", color: T.text3 }}>發願進度</span>
-                                    <span style={{ fontSize: "0.7rem", fontWeight: 500, color: T.accent }}>{pct.toFixed(2)}%</span>
+                                    <span style={{ fontSize: "1.05rem", color: T.text3 }}>發願進度</span>
+                                    <span style={{ fontSize: "1rem", fontWeight: 500, color: T.accent }}>{pct.toFixed(2)}%</span>
                                 </div>
                                 {nextMile && (
-                                    <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: `1px solid ${T.line}`, fontSize: "0.72rem", color: T.text2, fontFamily: "'Noto Serif SC',serif", fontWeight: 300 }}>
+                                    <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: `1px solid ${T.line}`, fontSize: "0.92rem", color: T.text2, fontFamily: "'Noto Serif SC',serif", fontWeight: 300 }}>
                                         距下一里程碑 <b style={{ color: T.accent }}>「{nextMile.label}」{nextMile.n.toLocaleString()}遍</b> 還差 <b style={{ color: T.accent }}>{(nextMile.n - gt).toLocaleString()}</b> 遍
                                     </div>
                                 )}
@@ -428,7 +447,7 @@
 
                         {/* Today */}
                         <div style={{ background: T.surface, borderRadius: 32, padding: "1.5rem", marginBottom: "1.25rem", animation: "fadeUp 0.4s 0.1s ease both" }}>
-                            <div style={{ fontSize: "0.7rem", color: T.text3, letterSpacing: "0.1em", marginBottom: "0.5rem" }}>
+                            <div style={{ fontSize: "1rem", color: T.text3, letterSpacing: "0.1em", marginBottom: "0.5rem" }}>
                                 今日持誦 &nbsp;
                                 <span>{now.getMonth() + 1}月{now.getDate()}日</span>
                             </div>
@@ -438,11 +457,11 @@
                                         <AnimNum value={todayCount} dur={500} />
                                     </span>
                                     {dailyGoal > 0 && <><span style={{ fontSize: "1.4rem", color: T.line }}>／</span><span style={{ fontSize: "1.4rem", color: T.text3, fontFamily: "'Noto Serif SC',serif", fontWeight: 300 }}>{dailyGoal}</span></>}
-                                    <span style={{ fontSize: "0.7rem", color: T.text3 }}>遍</span>
+                                    <span style={{ fontSize: "1rem", color: T.text3 }}>遍</span>
                                 </div>
                                 {dailyGoal > 0 && <>
                                     <PBar pct={dayPct} color={T.jade} bg={T.jadeSoft} />
-                                    <div style={{ textAlign: "right", fontSize: "0.65rem", marginTop: "0.3rem", color: dayPct >= 100 ? T.jade : T.text3 }}>
+                                    <div style={{ textAlign: "right", fontSize: "1.05rem", marginTop: "0.3rem", color: dayPct >= 100 ? T.jade : T.text3 }}>
                                         {dayPct >= 100 ? "✓ 今日圓滿" : dayPct + "%"}
                                     </div>
                                 </>}
@@ -452,29 +471,29 @@
                         {/* Stats row */}
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.25rem", animation: "fadeUp 0.4s 0.15s ease both" }}>
                             <div style={{ background: T.surface, borderRadius: 24, padding: "1rem", border: `1px solid ${T.line}` }}>
-                                <div style={{ fontSize: "0.6rem", color: T.text3, letterSpacing: "2px", marginBottom: "0.5rem" }}>本月持誦</div>
+                                <div style={{ fontSize: "0.92rem", color: T.text3, letterSpacing: "2px", marginBottom: "0.5rem" }}>本月持誦</div>
                                 {me
                                     ? <div style={{ fontSize: "1.5rem", fontWeight: 600, color: T.accent, fontFamily: "'Noto Serif SC',serif" }}>{monthTotal.toLocaleString()}</div>
                                     : <div className="skel" style={{ height: 32 }} />}
-                                <div style={{ fontSize: "0.62rem", color: T.text3, marginTop: "0.4rem" }}>遍</div>
+                                <div style={{ fontSize: "0.92rem", color: T.text3, marginTop: "0.4rem" }}>遍</div>
                             </div>
                             <div style={{ background: T.surface, borderRadius: 24, padding: "1rem", border: `1px solid ${T.line}` }}>
-                                <div style={{ fontSize: "0.6rem", color: T.text3, letterSpacing: "2px", marginBottom: "0.5rem" }}>連續持誦</div>
+                                <div style={{ fontSize: "0.92rem", color: T.text3, letterSpacing: "2px", marginBottom: "0.5rem" }}>連續持誦</div>
                                 {me
                                     ? <div style={{ fontSize: "1.5rem", fontWeight: 600, fontFamily: "'Noto Serif SC',serif" }}>{streak}</div>
                                     : <div className="skel" style={{ height: 32 }} />}
-                                <div style={{ fontSize: "0.62rem", color: T.text3, marginTop: "0.4rem" }}>天</div>
+                                <div style={{ fontSize: "0.92rem", color: T.text3, marginTop: "0.4rem" }}>天</div>
                             </div>
                         </div>
 
                         {/* Next heart */}
                         {me && nextHeart && (
                             <div style={{ background: T.goldPale, borderRadius: 20, padding: "1rem", marginBottom: "1.25rem", border: `1px solid ${T.goldSoft}`, animation: "fadeUp 0.4s 0.2s ease both" }}>
-                                <div style={{ fontSize: "0.65rem", color: T.gold, letterSpacing: "0.1em", marginBottom: "0.5rem" }}>大悲十心 · 下一心</div>
+                                <div style={{ fontSize: "1.05rem", color: T.gold, letterSpacing: "0.1em", marginBottom: "0.5rem" }}>大悲十心 · 下一心</div>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
                                     <div>
                                         <span style={{ fontFamily: "'Noto Serif SC',serif", fontWeight: 500 }}>「{nextHeart.zh}」</span>
-                                        <div style={{ fontSize: "0.7rem", color: T.text3, marginTop: "0.2rem" }}>再持 <b style={{ color: T.gold }}>{(nextHeart.unlock - gt).toLocaleString()}</b> 遍解鎖</div>
+                                        <div style={{ fontSize: "1rem", color: T.text3, marginTop: "0.2rem" }}>再持 <b style={{ color: T.gold }}>{(nextHeart.unlock - gt).toLocaleString()}</b> 遍解鎖</div>
                                     </div>
                                     <div style={{ width: 32, height: 32, borderRadius: "50%", background: T.goldSoft, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>✦</div>
                                 </div>
@@ -488,7 +507,7 @@
                                 <button key={btn.dest} onClick={() => onNav(btn.dest)} className="touch-btn"
                                     style={{ flex: 1, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 28, padding: "0.9rem 0", textAlign: "center", cursor: "pointer" }}>
                                     <div style={{ fontSize: "1.3rem" }}>{btn.icon}</div>
-                                    <div style={{ fontSize: "0.7rem", color: T.text2 }}>{btn.label}</div>
+                                    <div style={{ fontSize: "1rem", color: T.text2 }}>{btn.label}</div>
                                 </button>
                             ))}
                         </div>
@@ -499,7 +518,7 @@
                             <LotusIcon size={18} /> 我要記錄
                         </button>
 
-                        <div style={{ marginTop: "2rem", textAlign: "center", fontSize: "0.6rem", color: T.text3, letterSpacing: "0.2em", fontFamily: "'Noto Serif SC',serif" }}>
+                        <div style={{ marginTop: "2rem", textAlign: "center", fontSize: "0.92rem", color: T.text3, letterSpacing: "0.2em", fontFamily: "'Noto Serif SC',serif" }}>
                             南無大悲觀世音菩薩
                         </div>
                     </div>
@@ -553,7 +572,7 @@
             return (
                 <>
                     <div onClick={close} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(10,8,6,0.4)", backdropFilter: "blur(12px)", animation: "fadeIn 0.2s" }} />
-                    <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 101, background: T.surface, borderRadius: "32px 32px 0 0", padding: "1.5rem 1.5rem 2.5rem", maxWidth: 520, margin: "0 auto", animation: closing ? "slideDown 0.3s both" : "slideUp 0.35s cubic-bezier(0.2,0.9,0.4,1.1) both", boxShadow: "0 -8px 32px rgba(0,0,0,0.1)" }}>
+                    <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 101, background: T.surface, borderRadius: "32px 32px 0 0", padding: "1.5rem 1.5rem calc(2.5rem + env(safe-area-inset-bottom, 0px))", maxWidth: 560, margin: "0 auto", animation: closing ? "slideDown 0.3s both" : "slideUp 0.35s cubic-bezier(0.2,0.9,0.4,1.1) both", boxShadow: "0 -8px 32px rgba(0,0,0,0.1)" }}>
                         <div style={{ textAlign: "center", marginBottom: "1rem" }}>
                             <div style={{ width: 40, height: 4, background: T.lineStrong, borderRadius: 99, margin: "0 auto" }} />
                         </div>
@@ -567,11 +586,11 @@
                         )}
 
                         <div style={{ marginBottom: "1rem" }}>
-                            <div style={{ fontSize: "0.65rem", color: T.text3, letterSpacing: "1.5px", marginBottom: "0.4rem" }}>日期</div>
-                            <input type="date" value={date} onChange={e => { setDate(e.target.value); setCount(""); }} style={{ padding: "0.6rem 0.8rem", borderRadius: 12, border: `1px solid ${T.lineStrong}`, width: "100%", background: T.bg, color: T.text, fontSize: "0.9rem" }} />
+                            <div style={{ fontSize: "1.05rem", color: T.text3, letterSpacing: "1.5px", marginBottom: "0.4rem" }}>日期</div>
+                            <input type="date" value={date} onChange={e => { setDate(e.target.value); setCount(""); }} style={{ padding: "0.6rem 0.8rem", borderRadius: 12, border: `1px solid ${T.lineStrong}`, width: "100%", background: T.bg, color: T.text, fontSize: "1rem" }} />
                         </div>
 
-                        <div style={{ fontSize: "0.9rem", color: T.text2, marginBottom: "0.5rem", fontFamily: "'Noto Serif SC',serif" }}>今天持誦了多少遍？</div>
+                        <div style={{ fontSize: "1rem", color: T.text2, marginBottom: "0.5rem", fontFamily: "'Noto Serif SC',serif" }}>今天持誦了多少遍？</div>
                         <input type="number" inputMode="numeric" value={count} onChange={e => setCount(e.target.value)}
                             placeholder="0"
                             style={{ fontSize: "2.2rem", padding: "0.7rem", textAlign: "center", width: "100%", border: `1.5px solid ${count ? T.accent : T.lineStrong}`, borderRadius: 20, marginBottom: "0.8rem", background: T.bg, color: T.text, fontFamily: "'Noto Serif SC',serif", letterSpacing: "-1px" }} />
@@ -579,13 +598,13 @@
                         <div style={{ display: "flex", gap: "0.6rem", marginBottom: "1.25rem" }}>
                             {[21, 49, 108].map(n => (
                                 <button key={n} onClick={() => add(n)} className="touch-btn"
-                                    style={{ flex: 1, padding: "0.5rem", borderRadius: 40, border: `1px solid ${T.lineStrong}`, background: "transparent", color: T.text2, fontSize: "0.85rem", cursor: "pointer" }}>
+                                    style={{ flex: 1, padding: "0.5rem", borderRadius: 40, border: `1px solid ${T.lineStrong}`, background: "transparent", color: T.text2, fontSize: "1.05rem", cursor: "pointer" }}>
                                     +{n}
                                 </button>
                             ))}
                         </div>
 
-                        {err && <div style={{ fontSize: "0.75rem", color: "#8B2020", background: "#FDF1F1", padding: "0.6rem", borderRadius: 12, marginBottom: "0.8rem" }}>{err}</div>}
+                        {err && <div style={{ fontSize: "1.05rem", color: "#8B2020", background: "#FDF1F1", padding: "0.6rem", borderRadius: 12, marginBottom: "0.8rem" }}>{err}</div>}
 
                         <button onClick={submit} disabled={loading || !parseInt(count)} className="touch-btn"
                             style={{ width: "100%", padding: "1rem", background: (!parseInt(count) || loading) ? T.accentSoft : T.sacredGrad, color: (!parseInt(count) || loading) ? T.accent : "white", borderRadius: 40, border: "none", fontWeight: 500, letterSpacing: "0.2em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", cursor: "pointer" }}>
@@ -593,7 +612,7 @@
                             {loading ? "正在记录你的持诵遍数…" : (modifyMode ? "確認修改记录" : "继续累积")}
                         </button>
 
-                        <button onClick={() => { setCount(""); setErr(""); }} style={{ width: "100%", marginTop: "0.6rem", padding: "0.65rem", background: "transparent", border: `1px solid ${T.line}`, borderRadius: 40, fontSize: "0.78rem", color: T.text3, cursor: "pointer" }}>
+                        <button onClick={() => { setCount(""); setErr(""); }} style={{ width: "100%", marginTop: "0.6rem", padding: "0.65rem", background: "transparent", border: `1px solid ${T.line}`, borderRadius: 40, fontSize: "1.05rem", color: T.text3, cursor: "pointer" }}>
                             重置
                         </button>
                     </div>
@@ -629,7 +648,7 @@
                         <div style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1.2rem", fontWeight: 400, letterSpacing: "4px", color: T.text }}>
                             {isNew100k ? "大悲行者" : "记录已更新"}
                         </div>
-                        <div style={{ fontSize: "0.72rem", color: T.text3, letterSpacing: "1px", margin: "0.4rem 0 1.5rem" }}>
+                        <div style={{ fontSize: "0.92rem", color: T.text3, letterSpacing: "1px", margin: "0.4rem 0 1.5rem" }}>
                             {date} · 持誦 {count.toLocaleString()} 遍
                         </div>
                         <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1.5rem" }}>
@@ -647,17 +666,17 @@
                             </div>
                         </div>
                         <div style={{ marginBottom: "0.5rem" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.62rem", color: T.text3, marginBottom: "0.4rem" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.92rem", color: T.text3, marginBottom: "0.4rem" }}>
                                 <span>發願進度</span><span style={{ color: T.accent }}>{pct.toFixed(2)}%</span>
                             </div>
                             <div style={{ background: T.accentPale, borderRadius: 99, height: 4, overflow: "hidden" }}>
                                 <div style={{ height: "100%", width: `${progW}%`, background: T.accent, borderRadius: 99, transition: "width 1.2s 0.5s cubic-bezier(0.4,0,0.2,1)" }} />
                             </div>
                         </div>
-                        <div style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "0.65rem", color: T.text3, letterSpacing: "3px", marginTop: "1.25rem", fontWeight: 300 }}>
+                        <div style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1.05rem", color: T.text3, letterSpacing: "3px", marginTop: "1.25rem", fontWeight: 300 }}>
                             南無大悲觀世音菩薩
                         </div>
-                        <button onClick={onDismiss} style={{ marginTop: "1rem", padding: "0.45rem 1.5rem", background: "transparent", border: `1px solid ${T.lineStrong}`, borderRadius: 99, fontSize: "0.7rem", color: T.text3, letterSpacing: "1.5px", cursor: "pointer" }}>
+                        <button onClick={onDismiss} style={{ marginTop: "1rem", padding: "0.45rem 1.5rem", background: "transparent", border: `1px solid ${T.lineStrong}`, borderRadius: 99, fontSize: "1rem", color: T.text3, letterSpacing: "1.5px", cursor: "pointer" }}>
                             關 閉
                         </button>
                     </div>
@@ -673,7 +692,7 @@
                         <button onClick={onBack} className="touch-btn" style={{ fontSize: "1.3rem", background: "none", border: "none", cursor: "pointer" }}>←</button>
                         <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1rem", fontWeight: 500 }}>大悲十心</span>
                     </div>
-                    <div style={{ padding: "1rem" }}>
+                    <div style={{ padding: "1rem 1rem calc(4rem + env(safe-area-inset-bottom, 0px))" }}>
                         {TEN_HEARTS.map((h, i) => <HeartCard key={h.zh} heart={h} unlocked={grandTotal >= h.unlock} idx={i} />)}
                     </div>
                 </div>
@@ -690,28 +709,28 @@
                         <button onClick={onBack} className="touch-btn" style={{ fontSize: "1.3rem", background: "none", border: "none", cursor: "pointer" }}>←</button>
                         <span style={{ fontFamily: "'Noto Serif SC',serif" }}>發願進度</span>
                     </div>
-                    <div style={{ padding: "1.5rem", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <div style={{ padding: "1.5rem 1.5rem calc(4rem + env(safe-area-inset-bottom, 0px))", display: "flex", flexDirection: "column", alignItems: "center" }}>
                         <CircProg pct={pct} size={180}>
                             <div style={{ textAlign: "center" }}>
                                 <div style={{ fontSize: "1.8rem", fontWeight: 700, fontFamily: "'Noto Serif SC',serif" }}>{pct.toFixed(1)}%</div>
-                                <div style={{ fontSize: "0.6rem", color: T.text3 }}>大悲行者</div>
+                                <div style={{ fontSize: "0.92rem", color: T.text3 }}>大悲行者</div>
                             </div>
                         </CircProg>
                         <div style={{ fontSize: "2rem", marginTop: "1rem", fontFamily: "'Noto Serif SC',serif", fontWeight: 700 }}>
                             <AnimNum value={gt} dur={800} />
                         </div>
-                        <div style={{ fontSize: "0.7rem", color: T.text3 }}>/ {tgt.toLocaleString()}</div>
+                        <div style={{ fontSize: "1rem", color: T.text3 }}>/ {tgt.toLocaleString()}</div>
                         <div style={{ width: "100%", marginTop: "1.5rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                             {MILESTONES.map(m => {
                                 const reached = gt >= m.n;
                                 return (
                                     <div key={m.n} style={{ padding: "0.8rem 1rem", borderRadius: 20, background: T.surface, border: `1px solid ${reached ? T.gold : T.line}` }}>
                                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                                            <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "0.85rem" }}>{m.n.toLocaleString()} 遍 「{m.label}」</span>
-                                            <span style={{ fontSize: "0.8rem", color: reached ? T.gold : T.text3 }}>{reached ? "✓ 達成" : `差 ${(m.n - gt).toLocaleString()}`}</span>
+                                            <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1.05rem" }}>{m.n.toLocaleString()} 遍 「{m.label}」</span>
+                                            <span style={{ fontSize: "1rem", color: reached ? T.gold : T.text3 }}>{reached ? "✓ 達成" : `差 ${(m.n - gt).toLocaleString()}`}</span>
                                         </div>
                                         <PBar pct={Math.min(100, (gt / m.n) * 100)} color={reached ? T.gold : T.accent} bg={T.accentPale} />
-                                        <div style={{ fontSize: "0.65rem", color: T.text3, marginTop: "0.3rem" }}>{m.desc}</div>
+                                        <div style={{ fontSize: "1.05rem", color: T.text3, marginTop: "0.3rem" }}>{m.desc}</div>
                                     </div>
                                 );
                             })}
@@ -781,9 +800,9 @@
                         <button onClick={onBack} className="touch-btn" style={{ fontSize: "1.3rem", background: "none", border: "none", cursor: "pointer" }}>←</button>
                         <span style={{ fontFamily: "'Noto Serif SC',serif" }}>持誦明細</span>
                     </div>
-                    <div style={{ padding: "1rem" }}>
+                    <div style={{ padding: "1rem 1rem calc(4rem + env(safe-area-inset-bottom, 0px))" }}>
                         {years.length === 0 && (
-                            <div style={{ textAlign: "center", padding: "3rem 1rem", color: T.text3, fontSize: "0.82rem", fontFamily: "'Noto Serif SC',serif" }}>
+                            <div style={{ textAlign: "center", padding: "3rem 1rem", color: T.text3, fontSize: "0.92rem", fontFamily: "'Noto Serif SC',serif" }}>
                                 暫無記錄
                             </div>
                         )}
@@ -798,10 +817,10 @@
                                     {/* Year row */}
                                     <div onClick={() => setOpenYear(isYOpen ? null : parseInt(year))}
                                         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", background: T.surface2, cursor: "pointer" }}>
-                                        <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "0.9rem", fontWeight: 400, color: T.text2 }}>{year} 年</span>
+                                        <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1rem", fontWeight: 400, color: T.text2 }}>{year} 年</span>
                                         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                                            <span style={{ fontSize: "0.7rem", color: T.text3 }}>{yearTotal ? yearTotal.toLocaleString() + '遍' : ''}</span>
-                                            <span style={{ fontSize: "0.7rem", color: T.text3, transition: "transform 0.25s", display: "inline-block", transform: isYOpen ? "rotate(180deg)" : "none" }}>▾</span>
+                                            <span style={{ fontSize: "1rem", color: T.text3 }}>{yearTotal ? yearTotal.toLocaleString() + '遍' : ''}</span>
+                                            <span style={{ fontSize: "1rem", color: T.text3, transition: "transform 0.25s", display: "inline-block", transform: isYOpen ? "rotate(180deg)" : "none" }}>▾</span>
                                         </div>
                                     </div>
                                     {/* Month list */}
@@ -814,10 +833,10 @@
                                             <div key={month} style={{ borderTop: `1px solid ${T.line}` }}>
                                                 <div onClick={() => openDetail(parseInt(year), month)}
                                                     style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.65rem 1.25rem 0.65rem 2rem", cursor: "pointer", background: isOpen ? T.accentPale : "transparent" }}>
-                                                    <span style={{ fontSize: "0.82rem", color: T.text2 }}>{month}月</span>
+                                                    <span style={{ fontSize: "0.92rem", color: T.text2 }}>{month}月</span>
                                                     {isLoading
                                                         ? <Spin size={12} />
-                                                        : <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "0.8rem", color: mdata && mdata.monthTotal > 0 ? T.accent : T.text3 }}>
+                                                        : <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1rem", color: mdata && mdata.monthTotal > 0 ? T.accent : T.text3 }}>
                                                             {mdata ? mdata.monthTotal.toLocaleString() + '遍' : <span className="skel" style={{ display: "inline-block", width: 40, height: 14 }} />}
                                                         </span>}
                                                 </div>
@@ -825,20 +844,20 @@
                                                     <div style={{ background: T.surface2, borderTop: `1px solid ${T.line}`, padding: "1.25rem" }}>
                                                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem" }}>
                                                             <div>
-                                                                <div style={{ fontSize: "0.6rem", color: T.text3, letterSpacing: "1.5px", marginBottom: "0.2rem" }}>{year}年{month}月 合計</div>
+                                                                <div style={{ fontSize: "0.92rem", color: T.text3, letterSpacing: "1.5px", marginBottom: "0.2rem" }}>{year}年{month}月 合計</div>
                                                                 <div style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1.5rem", fontWeight: 600, color: T.accent, letterSpacing: "-1px" }}>{mdata.monthTotal.toLocaleString()}</div>
                                                             </div>
                                                             <div style={{ textAlign: "right" }}>
-                                                                <div style={{ fontSize: "0.6rem", color: T.text3, letterSpacing: "1.5px", marginBottom: "0.2rem" }}>持誦天數</div>
-                                                                <div style={{ fontSize: "0.75rem", color: T.text3 }}>{(mdata.entries || []).length} 天</div>
+                                                                <div style={{ fontSize: "0.92rem", color: T.text3, letterSpacing: "1.5px", marginBottom: "0.2rem" }}>持誦天數</div>
+                                                                <div style={{ fontSize: "1.05rem", color: T.text3 }}>{(mdata.entries || []).length} 天</div>
                                                             </div>
                                                         </div>
                                                         {!(mdata.entries || []).length
-                                                            ? <div style={{ textAlign: "center", padding: "1rem", color: T.text3, fontSize: "0.8rem", fontFamily: "'Noto Serif SC',serif" }}>本月暫無記錄</div>
-                                                            : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
+                                                            ? <div style={{ textAlign: "center", padding: "1rem", color: T.text3, fontSize: "1rem", fontFamily: "'Noto Serif SC',serif" }}>本月暫無記錄</div>
+                                                            : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "1rem" }}>
                                                                 <thead><tr>
-                                                                    <th style={{ fontSize: "0.6rem", color: T.text3, letterSpacing: "1.5px", padding: "0.4rem 0.5rem", textAlign: "left", borderBottom: `1px solid ${T.line}`, fontWeight: 400 }}>日期</th>
-                                                                    <th style={{ fontSize: "0.6rem", color: T.text3, letterSpacing: "1.5px", padding: "0.4rem 0.5rem", textAlign: "right", borderBottom: `1px solid ${T.line}`, fontWeight: 400 }}>遍數</th>
+                                                                    <th style={{ fontSize: "0.92rem", color: T.text3, letterSpacing: "1.5px", padding: "0.4rem 0.5rem", textAlign: "left", borderBottom: `1px solid ${T.line}`, fontWeight: 400 }}>日期</th>
+                                                                    <th style={{ fontSize: "0.92rem", color: T.text3, letterSpacing: "1.5px", padding: "0.4rem 0.5rem", textAlign: "right", borderBottom: `1px solid ${T.line}`, fontWeight: 400 }}>遍數</th>
                                                                 </tr></thead>
                                                                 <tbody>
                                                                     {[...(mdata.entries || [])].sort((a, b) => b.date.localeCompare(a.date)).map(e => {
@@ -882,7 +901,7 @@
             const { status, text } = state;
             const dotColor = status === 'ok' ? '#5cb88a' : status === 'loading' ? T.accentLight : T.text3;
             return (
-                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.62rem", color: T.text3 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.92rem", color: T.text3 }}>
                     <span>{text}</span>
                     <div style={{ width: 6, height: 6, borderRadius: "50%", background: dotColor, animation: status === 'loading' ? "pulse 0.9s ease-in-out infinite" : "none" }} />
                 </div>
@@ -993,7 +1012,7 @@
             return (
                 <>
                     <style>{GLOBAL_STYLES}</style>
-                    <div style={{ height: "100vh", maxWidth: 520, margin: "0 auto", background: T.bg, position: "relative", overflow: "hidden" }}>
+                    <div className="full-height" style={{ width: "100%", maxWidth: 560, margin: "0 auto", background: T.bg, position: "relative", overflow: "hidden" }}>
                         {screen === "login" && <LoginScreen onLogin={onLogin} />}
                         {screen === "home" && user && (
                             <HomeScreen
