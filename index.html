@@ -120,7 +120,6 @@
         // ── SPIRITUAL CONTENT ────────────────────────────────────────────────────────
         const SHIFU_QUOTE = "只要一生中誦持大悲咒滿十萬遍，即能隨願往生任一佛國淨土。";
         const SHIFU_ATTR = "— 心道法師";
-        const WORLD_COUNT = 565;
 
         const TEN_HEARTS = [
             { zh: "大慈悲心", en: "Great Compassion", unlock: 1000, desc: "以無限慈悲，普願眾生離苦得樂" },
@@ -178,16 +177,69 @@
   .skel { background: linear-gradient(90deg,#F5EDE0 25%,#E8D8C4 50%,#F5EDE0 75%); background-size:200% 100%; animation:skel 1.4s infinite; border-radius:6px; }
 `;
 
-        // ── CHAR UTILS (Traditional ↔ Simplified matching via OpenCC-js) ───────────────
-        let _t2s = null;
-        function _getT2S() {
-            if (!_t2s) _t2s = OpenCC.Converter({ from: 'tw', to: 'cn' });
-            return _t2s;
+        // ── CHAR UTILS ────────────────────────────────────────────────────────────────
+        // OpenCC-js uni.js: Converter() returns a Promise<function>, not a function.
+        // We initialise it once at startup and store the resolved converter.
+        // While it is loading we fall back to a built-in t2s map covering common
+        // Chinese name characters so login never silently fails.
+
+        // Built-in Traditional→Simplified map (common name + UI characters)
+        const T2S_MAP = {
+            '愛': '爱', '寶': '宝', '備': '备', '筆': '笔', '邊': '边', '標': '标', '錶': '表',
+            '別': '别', '賓': '宾', '補': '补', '財': '财', '參': '参', '產': '产', '場': '场',
+            '長': '长', '車': '车', '陳': '陈', '稱': '称', '誠': '诚', '遲': '迟', '傳': '传',
+            '從': '从', '達': '达', '帶': '带', '擔': '担', '當': '当', '導': '导', '燈': '灯',
+            '點': '点', '電': '电', '東': '东', '動': '动', '讀': '读', '對': '对', '發': '发',
+            '範': '范', '飛': '飞', '費': '费', '豐': '丰', '鳳': '凤', '幹': '干', '剛': '刚',
+            '個': '个', '給': '给', '廣': '广', '國': '国', '過': '过', '漢': '汉', '號': '号',
+            '後': '后', '歡': '欢', '換': '换', '會': '会', '幾': '几', '濟': '济', '記': '记',
+            '際': '际', '繼': '继', '價': '价', '見': '见', '堅': '坚', '將': '将', '講': '讲',
+            '節': '节', '解': '解', '進': '进', '經': '经', '競': '竞', '靜': '静', '舊': '旧',
+            '開': '开', '勞': '劳', '樂': '乐', '類': '类', '離': '离', '麗': '丽', '歷': '历',
+            '連': '连', '憐': '怜', '靈': '灵', '劉': '刘', '龍': '龙', '樓': '楼', '陸': '陆',
+            '亂': '乱', '媽': '妈', '買': '买', '賣': '卖', '滿': '满', '門': '门', '夢': '梦',
+            '麵': '面', '廟': '庙', '鳴': '鸣', '難': '难', '腦': '脑', '農': '农', '歐': '欧',
+            '盼': '盼', '錢': '钱', '親': '亲', '請': '请', '確': '确', '讓': '让', '認': '认',
+            '傷': '伤', '聲': '声', '師': '师', '時': '时', '實': '实', '書': '书', '樹': '树',
+            '數': '数', '說': '说', '孫': '孙', '臺': '台', '態': '态', '談': '谈', '體': '体',
+            '聽': '听', '條': '条', '頭': '头', '圖': '图', '團': '团', '萬': '万', '網': '网',
+            '為': '为', '衛': '卫', '問': '问', '無': '无', '務': '务', '習': '习', '峽': '峡',
+            '現': '现', '線': '线', '鄉': '乡', '響': '响', '寫': '写', '謝': '谢', '心': '心',
+            '興': '兴', '學': '学', '選': '选', '尋': '寻', '亞': '亚', '嚴': '严', '陽': '阳',
+            '業': '业', '葉': '叶', '義': '义', '議': '议', '陰': '阴', '應': '应', '擁': '拥',
+            '優': '优', '語': '语', '鬱': '郁', '員': '员', '遠': '远', '願': '愿', '運': '运',
+            '雜': '杂', '張': '张', '這': '这', '針': '针', '鎮': '镇', '正': '正', '證': '证',
+            '製': '制', '鐘': '钟', '種': '种', '壯': '壮', '準': '准', '資': '资', '總': '总',
+            '鄒': '邹', '組': '组', '最': '最',
+            // extra common name chars
+            '偉': '伟', '俊': '俊', '婷': '婷', '慧': '慧', '雅': '雅', '玲': '玲', '燕': '燕',
+            '鵬': '鹏', '輝': '辉', '華': '华', '榮': '荣', '傑': '杰', '彬': '彬', '琳': '琳',
+        };
+
+        function builtinT2S(s) {
+            return String(s).split('').map(c => T2S_MAP[c] || c).join('');
         }
+
+        // Async init: resolve the OpenCC converter once and cache it
+        let _openccConvert = null;   // null = not ready yet; false = unavailable
+        (async () => {
+            try {
+                const fn = await OpenCC.Converter({ from: 'tw', to: 'cn' });
+                if (typeof fn === 'function') { _openccConvert = fn; }
+                else { _openccConvert = false; }
+            } catch (e) { _openccConvert = false; }
+        })();
+
         function toSimplified(s) {
-            try { return _getT2S()(String(s)); }
-            catch (e) { return String(s); }
+            const str = String(s);
+            // If OpenCC is ready, use it (comprehensive coverage)
+            if (typeof _openccConvert === 'function') {
+                try { return _openccConvert(str); } catch (e) { }
+            }
+            // Fallback: built-in map (covers common name characters)
+            return builtinT2S(str);
         }
+
         function nameEq(a, b) {
             return toSimplified(String(a).trim()) === toSimplified(String(b).trim());
         }
@@ -358,13 +410,13 @@
                                 style={{ width: "100%", padding: "0.9rem 1rem", border: `1px solid ${err ? "#C47070" : T.lineStrong}`, borderRadius: 16, background: T.bg, fontFamily: "'Noto Serif SC',serif", fontSize: "1rem", marginBottom: "0.8rem", color: T.text }}
                             />
                             {err && <div style={{ fontSize: "1rem", color: "#8B2020", background: "#FDF1F1", padding: "0.6rem", borderRadius: 12, marginBottom: "1rem" }}>{err}</div>}
-                            <button onClick={() => doVerify()} disabled={loading} className="touch-btn" style={{ width: "100%", padding: "1rem", background: loading ? T.accentSoft : T.sacredGrad, color: loading ? T.accent : "#fff", border: "none", borderRadius: 40, fontWeight: 500, letterSpacing: "0.2em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
+                            <button onClick={() => doVerify()} disabled={loading} className="touch-btn" style={{ width: "100%", padding: "1rem", background: loading ? T.accentSoft : T.sacredGrad, color: loading ? T.accent : "#fff", border: "none", borderRadius: 40, fontSize: "1.05rem", fontWeight: 500, letterSpacing: "0.12em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
                                 {loading && <Spin size={14} />}
                                 {loading ? "驗證中…" : "踏入大悲之路"}
                             </button>
                         </div>
                         <div style={{ textAlign: "center", marginTop: "2rem", fontSize: "0.92rem", color: T.text3, letterSpacing: "0.2em" }}>
-                            全球 {WORLD_COUNT} 位大悲行者 · 南無觀世音菩薩
+                            南無觀世音菩薩
                         </div>
                     </div>
                 </div>
@@ -514,7 +566,7 @@
 
                         {/* Record CTA */}
                         <button onClick={() => onNav("record")} className="touch-btn"
-                            style={{ width: "100%", background: T.sacredGrad, border: "none", borderRadius: 60, padding: "1rem", color: "white", fontWeight: 500, letterSpacing: "0.2em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.6rem", animation: "fadeUp 0.4s 0.3s ease both" }}>
+                            style={{ width: "100%", background: T.sacredGrad, border: "none", borderRadius: 60, padding: "1.1rem", color: "white", fontSize: "1.1rem", fontWeight: 600, letterSpacing: "0.1em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.6rem", animation: "fadeUp 0.4s 0.3s ease both" }}>
                             <LotusIcon size={18} /> 我要記錄
                         </button>
 
@@ -607,7 +659,7 @@
                         {err && <div style={{ fontSize: "1.05rem", color: "#8B2020", background: "#FDF1F1", padding: "0.6rem", borderRadius: 12, marginBottom: "0.8rem" }}>{err}</div>}
 
                         <button onClick={submit} disabled={loading || !parseInt(count)} className="touch-btn"
-                            style={{ width: "100%", padding: "1rem", background: (!parseInt(count) || loading) ? T.accentSoft : T.sacredGrad, color: (!parseInt(count) || loading) ? T.accent : "white", borderRadius: 40, border: "none", fontWeight: 500, letterSpacing: "0.2em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", cursor: "pointer" }}>
+                            style={{ width: "100%", padding: "1rem", background: (!parseInt(count) || loading) ? T.accentSoft : T.sacredGrad, color: (!parseInt(count) || loading) ? T.accent : "white", borderRadius: 40, border: "none", fontSize: "1.05rem", fontWeight: 600, letterSpacing: "0.1em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", cursor: "pointer" }}>
                             {loading && <Spin size={14} />}
                             {loading ? "正在记录你的持诵遍数…" : (modifyMode ? "確認修改记录" : "继续累积")}
                         </button>
