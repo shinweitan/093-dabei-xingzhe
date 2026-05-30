@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>大悲行者 · 靈鷲山 | 觀音法門修持</title>
+    <script src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- OpenCC-js: production-grade Traditional ↔ Simplified Chinese converter -->
+    <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/uni.js"></script>
+    <style>
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body,
+        html,
+        #root {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            background: #F2EEE7;
+        }
+
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        *:focus-visible {
+            outline: 2px solid #C4915A;
+            outline-offset: 2px;
+        }
+
+        .scroll-soft {
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Full-page submission lock — prevents double-tap / background interaction */
+        .submit-block {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(10, 8, 6, 0.55);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            animation: fadeIn 0.18s ease both;
+            pointer-events: all;
+            /* blocks all clicks beneath */
+        }
+
+        .submit-block__spinner {
+            width: 44px;
+            height: 44px;
+            border: 3px solid rgba(242, 238, 231, 0.25);
+            border-top-color: #C4915A;
+            border-radius: 50%;
+            animation: spin 0.75s linear infinite;
+        }
+
+        .submit-block__label {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 0.82rem;
+            letter-spacing: 0.18em;
+            color: #F2EEE7;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // ── CONFIG ───────────────────────────────────────────────────────────────────
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwaVnAAJUnOQrUxYSGm9QbpsNHmhpY_ItykKtix9ys0VfaYBaJrfbsLvWb8bkdNCh5mew/exec';
+
+        // Hard floor: no history before this month is shown in 持誦明細
+        const HISTORY_FLOOR_YM = '2026-05';
+
+        // ── SPIRITUAL CONTENT ────────────────────────────────────────────────────────
+        const SHIFU_QUOTE = "只要一生中誦持大悲咒滿十萬遍，即能隨願往生任一佛國淨土。";
+        const SHIFU_ATTR = "— 心道法師";
+        const WORLD_COUNT = 565;
+
+        const TEN_HEARTS = [
+            { zh: "大慈悲心", en: "Great Compassion", unlock: 1000, desc: "以無限慈悲，普願眾生離苦得樂" },
+            { zh: "平等心", en: "Equanimity", unlock: 3000, desc: "視一切眾生平等無差，不起分別" },
+            { zh: "無為心", en: "Non-Attachment", unlock: 7000, desc: "行善不求回報，自然無為而為" },
+            { zh: "無染著心", en: "Purity", unlock: 12000, desc: "心不染塵，清淨如蓮出污泥" },
+            { zh: "空觀心", en: "Emptiness", unlock: 20000, desc: "觀諸法空性，不執一切相" },
+            { zh: "恭敬心", en: "Reverence", unlock: 35000, desc: "敬佛敬法敬僧，敬一切眾生" },
+            { zh: "卑下心", en: "Humility", unlock: 50000, desc: "謙遜自處，不生我慢貢高之念" },
+            { zh: "無雜亂心", en: "Clarity", unlock: 65000, desc: "專注一境，心無散亂妄想" },
+            { zh: "無見取心", en: "Non-Clinging", unlock: 80000, desc: "不執著於見解，隨緣自在" },
+            { zh: "無上菩提心", en: "Bodhicitta", unlock: 100000, desc: "發無上正覺之心，誓願成佛度眾" },
+        ];
+
+        const MILESTONES = [
+            { n: 1000, label: "初心", desc: "踏上大悲之路" },
+            { n: 5000, label: "精進", desc: "持誦漸入佳境" },
+            { n: 10000, label: "願力", desc: "功德不可思議" },
+            { n: 25000, label: "深入", desc: "與觀音菩薩相應" },
+            { n: 50000, label: "中道", desc: "已過半程，願力堅固" },
+            { n: 75000, label: "近岸", desc: "彼岸在望，精進不懈" },
+            { n: 100000, label: "大悲行者", desc: "圓滿十萬遍，榮膺大悲行者" },
+        ];
+
+        // ── DESIGN TOKENS ─────────────────────────────────────────────────────────────
+        const T = {
+            bg: "#F2EEE7", bgDeep: "#EDE8DF", surface: "#FDFAF5", surface2: "#F7F3EB",
+            text: "#1A1612", text2: "#3D3529", text3: "#9C8E7E",
+            accent: "#7B4F2E", accentLight: "#C4915A", accentSoft: "#E8D8C4", accentPale: "#F5EDE0",
+            jade: "#2D6B50", jadeSoft: "#D8EDE4", jadeLight: "#4A9470",
+            gold: "#B8882A", goldSoft: "#F5E8C4", goldPale: "#FBF4E0",
+            line: "rgba(26,22,18,0.07)", lineStrong: "rgba(26,22,18,0.13)",
+            sacredGrad: "linear-gradient(135deg, #7B4F2E 0%, #B8882A 100%)",
+        };
+
+        const GLOBAL_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500;600&display=swap');
+  @keyframes fadeUp   { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+  @keyframes fadeIn   { from { opacity:0; } to { opacity:1; } }
+  @keyframes slideUp  { from { transform:translateY(100%); } to { transform:translateY(0); } }
+  @keyframes slideDown{ from { transform:translateY(0); } to { transform:translateY(100%); } }
+  @keyframes slideL   { from { transform:translateX(100%); opacity:0; } to { transform:translateX(0); opacity:1; } }
+  @keyframes bloom    { from { transform:scale(0.2); opacity:0; } to { transform:scale(1); opacity:1; } }
+  @keyframes float    { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-6px); } }
+  @keyframes spin     { to { transform:rotate(360deg); } }
+  @keyframes glow     { 0%,100% { box-shadow:0 0 0 0 rgba(184,136,42,0); } 60% { box-shadow:0 0 28px 10px rgba(184,136,42,0.2); } }
+  @keyframes checkDraw{ from { stroke-dashoffset:70; } to { stroke-dashoffset:0; } }
+  @keyframes cardPop  { from { transform:scale(0.92) translateY(20px); opacity:0; } to { transform:scale(1) translateY(0); opacity:1; } }
+  @keyframes pulse    { 0%,100% { opacity:0.35; } 50% { opacity:1; } }
+  @keyframes skel     { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
+  .screen-l { animation: slideL 0.36s cubic-bezier(0.2,0.9,0.4,1.1) both; }
+  .login-in { animation: fadeUp 0.55s ease-out both; }
+  .touch-btn { transition: transform 0.12s, opacity 0.15s; cursor:pointer; user-select:none; }
+  .touch-btn:active { transform:scale(0.97); opacity:0.85; }
+  .skel { background: linear-gradient(90deg,#F5EDE0 25%,#E8D8C4 50%,#F5EDE0 75%); background-size:200% 100%; animation:skel 1.4s infinite; border-radius:6px; }
+`;
+
+        // ── CHAR UTILS (Traditional ↔ Simplified matching via OpenCC-js) ───────────────
+        let _t2s = null;
+        function _getT2S() {
+            if (!_t2s) _t2s = OpenCC.Converter({ from: 'tw', to: 'cn' });
+            return _t2s;
+        }
+        function toSimplified(s) {
+            try { return _getT2S()(String(s)); }
+            catch (e) { return String(s); }
+        }
+        function nameEq(a, b) {
+            return toSimplified(String(a).trim()) === toSimplified(String(b).trim());
+        }
+        const pad = n => n < 10 ? '0' + n : '' + n;
+        const fmtDate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const todayStr = () => fmtDate(new Date());
+        const fmtTime = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        const num = n => (n === null || n === undefined) ? '…' : Number(n).toLocaleString();
+
+        // ── JSONP API ─────────────────────────────────────────────────────────────────
+        let cbN = 0;
+        function api(params, cb) {
+            const cbName = '__cb' + (++cbN);
+            const script = document.createElement('script');
+            let done = false;
+            const timer = setTimeout(() => {
+                if (done) return; done = true;
+                delete window[cbName];
+                try { document.head.removeChild(script); } catch (e) { }
+                cb(null, '請求超時');
+            }, 16000);
+            window[cbName] = data => {
+                if (done) return; done = true;
+                clearTimeout(timer); delete window[cbName];
+                try { document.head.removeChild(script); } catch (e) { }
+                if (data && data.error) cb(null, data.error);
+                else cb(data, null);
+            };
+            params.callback = cbName;
+            script.src = SCRIPT_URL + '?' + Object.keys(params).map(k =>
+                encodeURIComponent(k) + '=' + encodeURIComponent(params[k])
+            ).join('&');
+            document.head.appendChild(script);
+        }
+
+        // ── SHARED COMPONENTS ─────────────────────────────────────────────────────────
+        function AnimNum({ value, dur = 700, style = {}, className = "" }) {
+            const [disp, setDisp] = useState(value);
+            const prev = useRef(value);
+            const raf = useRef(null);
+            useEffect(() => {
+                const s = prev.current, e = value;
+                if (s === e) return;
+                const t0 = performance.now();
+                const go = now => {
+                    const p = Math.min((now - t0) / dur, 1);
+                    const ease = 1 - Math.pow(1 - p, 3);
+                    setDisp(Math.round(s + (e - s) * ease));
+                    if (p < 1) raf.current = requestAnimationFrame(go);
+                    else { prev.current = e; setDisp(e); }
+                };
+                raf.current = requestAnimationFrame(go);
+                return () => raf.current && cancelAnimationFrame(raf.current);
+            }, [value, dur]);
+            return <span className={className} style={style}>{disp.toLocaleString()}</span>;
+        }
+
+        function PBar({ pct, color = T.accent, bg = T.accentPale, h = 4, delay = 150 }) {
+            const [w, setW] = useState(0);
+            useEffect(() => { const t = setTimeout(() => setW(Math.min(100, pct)), delay); return () => clearTimeout(t); }, [pct]);
+            return (
+                <div style={{ background: bg, borderRadius: 99, height: h, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${w}%`, background: color, borderRadius: 99, transition: "width 0.9s cubic-bezier(0.4,0,0.2,1)" }} />
+                </div>
+            );
+        }
+
+        function CircProg({ pct, size = 180, stroke = 10, color = T.accent, trackColor = T.accentPale, children }) {
+            const r = (size - stroke) / 2, circ = 2 * Math.PI * r;
+            const [ap, setAp] = useState(0);
+            useEffect(() => { const t = setTimeout(() => setAp(pct), 200); return () => clearTimeout(t); }, [pct]);
+            const offset = circ - (ap / 100) * circ;
+            return (
+                <div style={{ position: "relative", width: size, height: size }}>
+                    <svg width={size} height={size} style={{ display: "block", transform: "rotate(-90deg)" }}>
+                        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={trackColor} strokeWidth={stroke} />
+                        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+                            strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+                            style={{ transition: "stroke-dashoffset 1.4s cubic-bezier(0.4,0,0.2,1)" }} />
+                    </svg>
+                    <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>{children}</div>
+                </div>
+            );
+        }
+
+        function LotusIcon({ size = 28, color = "#fff", style = {} }) {
+            return (
+                <svg width={size} height={size} viewBox="0 0 32 32" fill="none" style={style}>
+                    <path d="M16 26C16 26 6 20 6 12C6 8 10 5 16 5C22 5 26 8 26 12C26 20 16 26 16 26Z" stroke={color} strokeWidth={1.4} strokeLinejoin="round" />
+                    <path d="M16 26C16 26 10 17 10 12" stroke={color} strokeWidth={1.2} strokeLinecap="round" opacity={0.5} />
+                    <path d="M16 26C16 26 22 17 22 12" stroke={color} strokeWidth={1.2} strokeLinecap="round" opacity={0.5} />
+                    <path d="M16 5V26" stroke={color} strokeWidth={1.2} strokeLinecap="round" opacity={0.4} />
+                    <circle cx={16} cy={12} r={2} fill={color} opacity={0.8} />
+                </svg>
+            );
+        }
+
+        function Spin({ size = 16, color = T.accent }) {
+            return <div style={{ width: size, height: size, border: `2px solid ${T.accentSoft}`, borderTopColor: color, borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />;
+        }
+
+        function HeartCard({ heart, unlocked, idx }) {
+            return (
+                <div style={{ background: unlocked ? T.surface : T.surface2, borderRadius: 20, padding: "1rem 1.25rem", border: `1px solid ${unlocked ? T.gold : T.line}`, opacity: unlocked ? 1 : 0.55, animation: `fadeUp 0.4s ${idx * 0.05}s ease both`, display: "flex", alignItems: "center", gap: "1rem", marginBottom: "0.75rem" }}>
+                    <div style={{ width: 44, height: 44, borderRadius: "50%", background: unlocked ? T.sacredGrad : T.accentSoft, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: unlocked ? "0 6px 18px rgba(184,136,42,0.2)" : "none" }}>
+                        {unlocked ? <span style={{ fontSize: "1.2rem" }}>✦</span> : <span style={{ fontSize: "0.8rem", color: T.text3 }}>🔒</span>}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: "0.6rem", marginBottom: "0.2rem" }}>
+                            <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "0.95rem", fontWeight: 500, color: unlocked ? T.text : T.text3 }}>{heart.zh}</span>
+                            <span style={{ fontSize: "0.65rem", color: T.text3, fontStyle: "italic" }}>{heart.en}</span>
+                        </div>
+                        {unlocked
+                            ? <div style={{ fontSize: "0.73rem", color: T.text2, lineHeight: 1.5 }}>{heart.desc}</div>
+                            : <div style={{ fontSize: "0.68rem", color: T.text3 }}>持誦達 {heart.unlock.toLocaleString()} 遍後解鎖</div>}
+                    </div>
+                </div>
+            );
+        }
+
+        // ── LOGIN SCREEN ──────────────────────────────────────────────────────────────
+        function LoginScreen({ onLogin }) {
+            const [name, setName] = useState(() => sessionStorage.getItem('tName') || "");
+            const [loading, setLoading] = useState(false);
+            const [err, setErr] = useState("");
+
+            useEffect(() => {
+                const saved = sessionStorage.getItem('tName');
+                if (saved) { setName(saved); doVerify(saved); }
+            }, []);
+
+            const doVerify = useCallback((nameVal) => {
+                const t = (nameVal || name).trim();
+                if (!t) { setErr("請輸入您的中文姓名"); return; }
+                setLoading(true); setErr("");
+                api({ action: 'getSummary' }, (data, apiErr) => {
+                    setLoading(false);
+                    if (apiErr) { setErr('❌ ' + apiErr); return; }
+                    const found = (data && data.summary || []).find(s => nameEq(s.name, t));
+                    if (!found) { setErr("未查找到此姓名，請聯繫管理員添加。"); sessionStorage.removeItem('tName'); return; }
+                    sessionStorage.setItem('tName', t);
+                    onLogin(found);
+                });
+            }, [name]);
+
+            return (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100%", padding: "2rem 1.5rem", background: T.bg, position: "relative", overflow: "hidden" }}>
+                    {[200, 340, 480].map((s, i) => (
+                        <div key={i} style={{ position: "absolute", width: s, height: s, borderRadius: "50%", border: `1px solid rgba(123,79,46,${0.05 - i * 0.01})`, top: "50%", left: "50%", transform: "translate(-50%,-50%)", pointerEvents: "none" }} />
+                    ))}
+                    <div className="login-in" style={{ maxWidth: 380, width: "100%", zIndex: 2 }}>
+                        <div style={{ width: 80, height: 80, borderRadius: "50%", background: T.sacredGrad, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 2rem", animation: "float 5s ease-in-out infinite, glow 4s 2s infinite", boxShadow: "0 16px 32px rgba(123,79,46,0.25)" }}>
+                            <LotusIcon size={38} />
+                        </div>
+                        <div style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "2rem", fontWeight: 500, letterSpacing: "0.4em", textAlign: "center", color: T.text }}>大悲行者</div>
+                        <div style={{ fontFamily: "'EB Garamond',serif", fontSize: "0.8rem", textAlign: "center", color: T.text3, letterSpacing: "0.2em", margin: "0.3rem 0 2rem" }}>靈鷲山 · 觀音法門</div>
+                        <div style={{ background: T.goldPale, borderRadius: 20, padding: "1rem 1.25rem", marginBottom: "2rem", border: `1px solid ${T.goldSoft}` }}>
+                            <div style={{ fontSize: "0.75rem", color: T.text2, lineHeight: 1.8 }}>「{SHIFU_QUOTE}」</div>
+                            <div style={{ fontSize: "0.65rem", color: T.gold, textAlign: "right", marginTop: "0.3rem" }}>{SHIFU_ATTR}</div>
+                        </div>
+                        <div style={{ background: T.surface, borderRadius: 28, padding: "2rem 1.5rem", boxShadow: "0 12px 36px rgba(0,0,0,0.06)" }}>
+                            <div style={{ fontSize: "0.7rem", color: T.text2, letterSpacing: "0.12em", marginBottom: "0.6rem" }}>中文姓名</div>
+                            <input
+                                value={name}
+                                onChange={e => { setName(e.target.value); setErr(""); }}
+                                onKeyDown={e => e.key === "Enter" && doVerify()}
+                                placeholder="請輸入"
+                                style={{ width: "100%", padding: "0.9rem 1rem", border: `1px solid ${err ? "#C47070" : T.lineStrong}`, borderRadius: 16, background: T.bg, fontFamily: "'Noto Serif SC',serif", fontSize: "1rem", marginBottom: "0.8rem", color: T.text }}
+                            />
+                            {err && <div style={{ fontSize: "0.7rem", color: "#8B2020", background: "#FDF1F1", padding: "0.6rem", borderRadius: 12, marginBottom: "1rem" }}>{err}</div>}
+                            <button onClick={() => doVerify()} disabled={loading} className="touch-btn" style={{ width: "100%", padding: "1rem", background: loading ? T.accentSoft : T.sacredGrad, color: loading ? T.accent : "#fff", border: "none", borderRadius: 40, fontWeight: 500, letterSpacing: "0.2em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
+                                {loading && <Spin size={14} />}
+                                {loading ? "驗證中…" : "踏入大悲之路"}
+                            </button>
+                        </div>
+                        <div style={{ textAlign: "center", marginTop: "2rem", fontSize: "0.6rem", color: T.text3, letterSpacing: "0.2em" }}>
+                            全球 {WORLD_COUNT} 位大悲行者 · 南無觀世音菩薩
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ── HOME / DASHBOARD ──────────────────────────────────────────────────────────
+        function HomeScreen({ user, meRef, monthDataRef, onNav, onLogout, syncState, setSyncState, refreshKey }) {
+            const me = meRef.current;
+            const gt = me ? me.grandTotal || 0 : 0;
+            const tg = me ? me.target || 0 : 0;
+            const pct = tg > 0 ? Math.min(100, gt / tg * 100) : 0;
+            const todayCount = getTodayCount(monthDataRef, user);
+            const dailyGoal = me ? me.dailyGoal || 0 : 0;
+            const dayPct = dailyGoal > 0 ? Math.min(100, Math.round(todayCount / dailyGoal * 100)) : 0;
+            const nextMile = MILESTONES.find(m => m.n > gt);
+            const nextHeart = TEN_HEARTS.find(h => gt < h.unlock);
+            const isXingZhe = gt >= 100000;
+            const monthTotal = getMonthTotal(monthDataRef);
+            const streak = getStreak(monthDataRef);
+            const now = new Date();
+
+            return (
+                <div className="scroll-soft" style={{ height: "100%", background: T.bg }}>
+                    {/* Topbar */}
+                    <div style={{ background: T.surface, padding: "0.8rem 1.25rem", borderBottom: `1px solid ${T.line}`, position: "sticky", top: 0, zIndex: 5 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.7rem" }}>
+                                <div style={{ width: 36, height: 36, borderRadius: "50%", background: T.sacredGrad, display: "flex", alignItems: "center", justifyContent: "center" }}><LotusIcon size={18} /></div>
+                                <div>
+                                    <div style={{ fontFamily: "'Noto Serif SC',serif", fontWeight: 600 }}>{user.name}</div>
+                                    <div style={{ fontSize: "0.6rem", color: T.gold }}>{isXingZhe ? "✦ 大悲行者" : "行者之路"}</div>
+                                </div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                                <SyncIndicator state={syncState} />
+                                <button onClick={onLogout} style={{ fontSize: "0.7rem", color: T.text3, background: "none", border: "none", textDecoration: "underline", cursor: "pointer" }}>切換</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ maxWidth: 520, margin: "0 auto", padding: "1.5rem 1.25rem 6rem" }}>
+                        {/* Shifu Quote */}
+                        <div style={{ background: T.goldPale, borderRadius: 20, padding: "1rem", marginBottom: "1.25rem", animation: "fadeUp 0.4s ease both", border: `1px solid ${T.goldSoft}` }}>
+                            <div style={{ fontSize: "0.7rem", lineHeight: 1.8, color: T.text2 }}>「{SHIFU_QUOTE}」</div>
+                            <div style={{ fontSize: "0.6rem", textAlign: "right", color: T.gold }}>{SHIFU_ATTR}</div>
+                        </div>
+
+                        {/* Hero grand total */}
+                        <div style={{ background: T.surface, borderRadius: 32, padding: "1.8rem", marginBottom: "1.25rem", boxShadow: "0 6px 24px rgba(0,0,0,0.04)", animation: "fadeUp 0.4s 0.05s ease both" }}>
+                            {me ? <>
+                                <div style={{ fontSize: "0.7rem", color: T.text3, marginBottom: "0.3rem" }}>
+                                    發願 <span style={{ color: T.accent }}>{me.vowYears}年</span> 持滿 <span style={{ color: T.accent }}>{(me.target || 0).toLocaleString()}遍</span>
+                                </div>
+                                <div style={{ fontSize: "2.8rem", fontWeight: 700, fontFamily: "'Noto Serif SC',serif", letterSpacing: "-2px" }}>
+                                    <AnimNum value={gt} dur={800} />
+                                </div>
+                                <div style={{ fontSize: "0.7rem", color: T.text3, marginBottom: "1rem" }}>
+                                    已持誦 / 目標 {tg.toLocaleString()}
+                                </div>
+                                <PBar pct={pct} />
+                                <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.6rem" }}>
+                                    <span style={{ fontSize: "0.65rem", color: T.text3 }}>發願進度</span>
+                                    <span style={{ fontSize: "0.7rem", fontWeight: 500, color: T.accent }}>{pct.toFixed(2)}%</span>
+                                </div>
+                                {nextMile && (
+                                    <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: `1px solid ${T.line}`, fontSize: "0.72rem", color: T.text2, fontFamily: "'Noto Serif SC',serif", fontWeight: 300 }}>
+                                        距下一里程碑 <b style={{ color: T.accent }}>「{nextMile.label}」{nextMile.n.toLocaleString()}遍</b> 還差 <b style={{ color: T.accent }}>{(nextMile.n - gt).toLocaleString()}</b> 遍
+                                    </div>
+                                )}
+                                {isXingZhe && <div style={{ marginTop: "1rem", textAlign: "center", color: T.gold, fontFamily: "'Noto Serif SC',serif" }}>✦ 榮膺大悲行者 ✦</div>}
+                            </> : (
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+                                    <div className="skel" style={{ height: 20, width: "60%" }} />
+                                    <div className="skel" style={{ height: 56, width: "80%" }} />
+                                    <div className="skel" style={{ height: 4 }} />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Today */}
+                        <div style={{ background: T.surface, borderRadius: 32, padding: "1.5rem", marginBottom: "1.25rem", animation: "fadeUp 0.4s 0.1s ease both" }}>
+                            <div style={{ fontSize: "0.7rem", color: T.text3, letterSpacing: "0.1em", marginBottom: "0.5rem" }}>
+                                今日持誦 &nbsp;
+                                <span>{now.getMonth() + 1}月{now.getDate()}日</span>
+                            </div>
+                            {me ? <>
+                                <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem", margin: "0.3rem 0 0.8rem" }}>
+                                    <span style={{ fontSize: "2.8rem", fontWeight: 700, color: T.jade, fontFamily: "'Noto Serif SC',serif", letterSpacing: "-1px" }}>
+                                        <AnimNum value={todayCount} dur={500} />
+                                    </span>
+                                    {dailyGoal > 0 && <><span style={{ fontSize: "1.4rem", color: T.line }}>／</span><span style={{ fontSize: "1.4rem", color: T.text3, fontFamily: "'Noto Serif SC',serif", fontWeight: 300 }}>{dailyGoal}</span></>}
+                                    <span style={{ fontSize: "0.7rem", color: T.text3 }}>遍</span>
+                                </div>
+                                {dailyGoal > 0 && <>
+                                    <PBar pct={dayPct} color={T.jade} bg={T.jadeSoft} />
+                                    <div style={{ textAlign: "right", fontSize: "0.65rem", marginTop: "0.3rem", color: dayPct >= 100 ? T.jade : T.text3 }}>
+                                        {dayPct >= 100 ? "✓ 今日圓滿" : dayPct + "%"}
+                                    </div>
+                                </>}
+                            </> : <div className="skel" style={{ height: 56, width: "50%", marginTop: "0.5rem" }} />}
+                        </div>
+
+                        {/* Stats row */}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.25rem", animation: "fadeUp 0.4s 0.15s ease both" }}>
+                            <div style={{ background: T.surface, borderRadius: 24, padding: "1rem", border: `1px solid ${T.line}` }}>
+                                <div style={{ fontSize: "0.6rem", color: T.text3, letterSpacing: "2px", marginBottom: "0.5rem" }}>本月持誦</div>
+                                {me
+                                    ? <div style={{ fontSize: "1.5rem", fontWeight: 600, color: T.accent, fontFamily: "'Noto Serif SC',serif" }}>{monthTotal.toLocaleString()}</div>
+                                    : <div className="skel" style={{ height: 32 }} />}
+                                <div style={{ fontSize: "0.62rem", color: T.text3, marginTop: "0.4rem" }}>遍</div>
+                            </div>
+                            <div style={{ background: T.surface, borderRadius: 24, padding: "1rem", border: `1px solid ${T.line}` }}>
+                                <div style={{ fontSize: "0.6rem", color: T.text3, letterSpacing: "2px", marginBottom: "0.5rem" }}>連續持誦</div>
+                                {me
+                                    ? <div style={{ fontSize: "1.5rem", fontWeight: 600, fontFamily: "'Noto Serif SC',serif" }}>{streak}</div>
+                                    : <div className="skel" style={{ height: 32 }} />}
+                                <div style={{ fontSize: "0.62rem", color: T.text3, marginTop: "0.4rem" }}>天</div>
+                            </div>
+                        </div>
+
+                        {/* Next heart */}
+                        {me && nextHeart && (
+                            <div style={{ background: T.goldPale, borderRadius: 20, padding: "1rem", marginBottom: "1.25rem", border: `1px solid ${T.goldSoft}`, animation: "fadeUp 0.4s 0.2s ease both" }}>
+                                <div style={{ fontSize: "0.65rem", color: T.gold, letterSpacing: "0.1em", marginBottom: "0.5rem" }}>大悲十心 · 下一心</div>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
+                                    <div>
+                                        <span style={{ fontFamily: "'Noto Serif SC',serif", fontWeight: 500 }}>「{nextHeart.zh}」</span>
+                                        <div style={{ fontSize: "0.7rem", color: T.text3, marginTop: "0.2rem" }}>再持 <b style={{ color: T.gold }}>{(nextHeart.unlock - gt).toLocaleString()}</b> 遍解鎖</div>
+                                    </div>
+                                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: T.goldSoft, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>✦</div>
+                                </div>
+                                <PBar pct={(gt / nextHeart.unlock) * 100} color={T.gold} bg={T.goldSoft} h={3} />
+                            </div>
+                        )}
+
+                        {/* Nav shortcuts */}
+                        <div style={{ display: "flex", gap: "0.8rem", marginBottom: "1.8rem", animation: "fadeUp 0.4s 0.25s ease both" }}>
+                            {[{ icon: "🌿", label: "十心", dest: "hearts" }, { icon: "📊", label: "里程碑", dest: "progress" }, { icon: "📖", label: "明細", dest: "history" }].map(btn => (
+                                <button key={btn.dest} onClick={() => onNav(btn.dest)} className="touch-btn"
+                                    style={{ flex: 1, background: T.surface, border: `1px solid ${T.line}`, borderRadius: 28, padding: "0.9rem 0", textAlign: "center", cursor: "pointer" }}>
+                                    <div style={{ fontSize: "1.3rem" }}>{btn.icon}</div>
+                                    <div style={{ fontSize: "0.7rem", color: T.text2 }}>{btn.label}</div>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Record CTA */}
+                        <button onClick={() => onNav("record")} className="touch-btn"
+                            style={{ width: "100%", background: T.sacredGrad, border: "none", borderRadius: 60, padding: "1rem", color: "white", fontWeight: 500, letterSpacing: "0.2em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.6rem", animation: "fadeUp 0.4s 0.3s ease both" }}>
+                            <LotusIcon size={18} /> 我要記錄
+                        </button>
+
+                        <div style={{ marginTop: "2rem", textAlign: "center", fontSize: "0.6rem", color: T.text3, letterSpacing: "0.2em", fontFamily: "'Noto Serif SC',serif" }}>
+                            南無大悲觀世音菩薩
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ── RECORD SHEET (Bottom Sheet) ───────────────────────────────────────────────
+        function RecordSheet({ userName, onClose, onSubmitSuccess, onSubmitStart, onSubmitError }) {
+            const [count, setCount] = useState("");
+            const [date, setDate] = useState(todayStr());
+            const [loading, setLoad] = useState(false);
+            const [closing, setClosing] = useState(false);
+            const [err, setErr] = useState("");
+            const [modifyMode, setModifyMode] = useState(false);
+            const [checkDone, setCheckDone] = useState(false);
+
+            useEffect(() => {
+                if (!date || !userName) return;
+                setModifyMode(false); setCheckDone(false); setErr("");
+                api({ action: 'checkEntry', name: userName, date }, (data, apiErr) => {
+                    if (apiErr) return;
+                    if (data && data.exists) {
+                        if (!count) setCount(String(data.count || ""));
+                        setModifyMode(true);
+                    }
+                    setCheckDone(true);
+                });
+            }, [date]);
+
+            const add = n => setCount(c => String((parseInt(c) || 0) + n));
+            const close = () => { setClosing(true); setTimeout(onClose, 280); };
+
+            const submit = () => {
+                const n = parseInt(count);
+                if (!n || n <= 0) { setErr("請輸入持誦數量"); return; }
+                setLoad(true); setErr("");
+                if (onSubmitStart) onSubmitStart();
+                const action = modifyMode ? 'updateEntry' : 'submitEntry';
+                api({ action, name: userName, date, count: n }, (data, apiErr) => {
+                    setLoad(false);
+                    if (apiErr) {
+                        if (onSubmitError) onSubmitError();
+                        setErr('❌ ' + apiErr);
+                        return;
+                    }
+                    onSubmitSuccess({ count: n, date, wasModify: modifyMode });
+                });
+            };
+
+            return (
+                <>
+                    <div onClick={close} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(10,8,6,0.4)", backdropFilter: "blur(12px)", animation: "fadeIn 0.2s" }} />
+                    <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 101, background: T.surface, borderRadius: "32px 32px 0 0", padding: "1.5rem 1.5rem 2.5rem", maxWidth: 520, margin: "0 auto", animation: closing ? "slideDown 0.3s both" : "slideUp 0.35s cubic-bezier(0.2,0.9,0.4,1.1) both", boxShadow: "0 -8px 32px rgba(0,0,0,0.1)" }}>
+                        <div style={{ textAlign: "center", marginBottom: "1rem" }}>
+                            <div style={{ width: 40, height: 4, background: T.lineStrong, borderRadius: 99, margin: "0 auto" }} />
+                        </div>
+                        <div style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1.1rem", marginBottom: "1rem" }}>錄入記錄</div>
+
+                        {modifyMode && (
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(255,243,235,0.9)", border: "1px solid rgba(255,120,70,0.35)", borderRadius: "12px", padding: "10px 12px", fontSize: "12px", fontWeight: 600, color: "#E25822", marginBottom: "10px" }}>
+                                <span style={{ fontSize: "13px" }}>⚠️</span>
+                                <span>此日期已有记录 · 修改后提交即可更新</span>
+                            </div>
+                        )}
+
+                        <div style={{ marginBottom: "1rem" }}>
+                            <div style={{ fontSize: "0.65rem", color: T.text3, letterSpacing: "1.5px", marginBottom: "0.4rem" }}>日期</div>
+                            <input type="date" value={date} onChange={e => { setDate(e.target.value); setCount(""); }} style={{ padding: "0.6rem 0.8rem", borderRadius: 12, border: `1px solid ${T.lineStrong}`, width: "100%", background: T.bg, color: T.text, fontSize: "0.9rem" }} />
+                        </div>
+
+                        <div style={{ fontSize: "0.9rem", color: T.text2, marginBottom: "0.5rem", fontFamily: "'Noto Serif SC',serif" }}>今天持誦了多少遍？</div>
+                        <input type="number" inputMode="numeric" value={count} onChange={e => setCount(e.target.value)}
+                            placeholder="0"
+                            style={{ fontSize: "2.2rem", padding: "0.7rem", textAlign: "center", width: "100%", border: `1.5px solid ${count ? T.accent : T.lineStrong}`, borderRadius: 20, marginBottom: "0.8rem", background: T.bg, color: T.text, fontFamily: "'Noto Serif SC',serif", letterSpacing: "-1px" }} />
+
+                        <div style={{ display: "flex", gap: "0.6rem", marginBottom: "1.25rem" }}>
+                            {[21, 49, 108].map(n => (
+                                <button key={n} onClick={() => add(n)} className="touch-btn"
+                                    style={{ flex: 1, padding: "0.5rem", borderRadius: 40, border: `1px solid ${T.lineStrong}`, background: "transparent", color: T.text2, fontSize: "0.85rem", cursor: "pointer" }}>
+                                    +{n}
+                                </button>
+                            ))}
+                        </div>
+
+                        {err && <div style={{ fontSize: "0.75rem", color: "#8B2020", background: "#FDF1F1", padding: "0.6rem", borderRadius: 12, marginBottom: "0.8rem" }}>{err}</div>}
+
+                        <button onClick={submit} disabled={loading || !parseInt(count)} className="touch-btn"
+                            style={{ width: "100%", padding: "1rem", background: (!parseInt(count) || loading) ? T.accentSoft : T.sacredGrad, color: (!parseInt(count) || loading) ? T.accent : "white", borderRadius: 40, border: "none", fontWeight: 500, letterSpacing: "0.2em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", cursor: "pointer" }}>
+                            {loading && <Spin size={14} />}
+                            {loading ? "正在记录你的持诵遍数…" : (modifyMode ? "確認修改记录" : "继续累积")}
+                        </button>
+
+                        <button onClick={() => { setCount(""); setErr(""); }} style={{ width: "100%", marginTop: "0.6rem", padding: "0.65rem", background: "transparent", border: `1px solid ${T.line}`, borderRadius: 40, fontSize: "0.78rem", color: T.text3, cursor: "pointer" }}>
+                            重置
+                        </button>
+                    </div>
+                </>
+            );
+        }
+
+        // ── SUCCESS OVERLAY ───────────────────────────────────────────────────────────
+        function SuccessOverlay({ result, me, onDismiss }) {
+            const [vis, setVis] = useState(false);
+            const [progW, setProgW] = useState(0);
+            const { count, date } = result;
+            const newGrand = (me ? me.grandTotal || 0 : 0) + count;
+            const tgt = me ? me.target || 0 : 0;
+            const pct = tgt > 0 ? Math.min(100, newGrand / tgt * 100) : 0;
+            const isNew100k = newGrand >= 100000 && (me ? me.grandTotal < 100000 : false);
+
+            useEffect(() => {
+                const t1 = setTimeout(() => setVis(true), 20);
+                const t2 = setTimeout(() => setProgW(pct), 300);
+                const t3 = setTimeout(onDismiss, 4500);
+                return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+            }, []);
+
+            return (
+                <div onClick={onDismiss} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(10,8,6,0.6)", backdropFilter: "blur(20px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem", opacity: vis ? 1 : 0, transition: "0.3s" }}>
+                    <div onClick={e => e.stopPropagation()} style={{ background: T.surface, borderRadius: 48, padding: "2.5rem 2rem", maxWidth: 320, width: "100%", textAlign: "center", animation: "cardPop 0.4s" }}>
+                        <div style={{ width: 64, height: 64, margin: "0 auto 1.25rem", background: isNew100k ? T.sacredGrad : `linear-gradient(135deg,${T.jade},${T.jadeLight})`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", animation: "bloom 0.5s 0.1s both" }}>
+                            {isNew100k
+                                ? <LotusIcon size={28} />
+                                : <svg width={30} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" style={{ strokeDasharray: 70, strokeDashoffset: 70, animation: "checkDraw 0.4s 0.2s forwards" }} /></svg>}
+                        </div>
+                        <div style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1.2rem", fontWeight: 400, letterSpacing: "4px", color: T.text }}>
+                            {isNew100k ? "大悲行者" : "记录已更新"}
+                        </div>
+                        <div style={{ fontSize: "0.72rem", color: T.text3, letterSpacing: "1px", margin: "0.4rem 0 1.5rem" }}>
+                            {date} · 持誦 {count.toLocaleString()} 遍
+                        </div>
+                        <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1.5rem" }}>
+                            <div style={{ flex: 1, background: T.surface2, borderRadius: 16, padding: "1rem 0.75rem" }}>
+                                <div style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1.5rem", fontWeight: 600, letterSpacing: "-1px" }}>
+                                    <AnimNum value={newGrand} dur={600} />
+                                </div>
+                                <div style={{ fontSize: "0.58rem", color: T.text3, letterSpacing: "1.5px", marginTop: "0.3rem" }}>累計總數</div>
+                            </div>
+                            <div style={{ flex: 1, background: T.surface2, borderRadius: 16, padding: "1rem 0.75rem" }}>
+                                <div style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1.5rem", fontWeight: 600, letterSpacing: "-1px" }}>
+                                    {me ? Math.max(0, (me.remaining || 0) - count).toLocaleString() : '—'}
+                                </div>
+                                <div style={{ fontSize: "0.58rem", color: T.text3, letterSpacing: "1.5px", marginTop: "0.3rem" }}>還要持誦</div>
+                            </div>
+                        </div>
+                        <div style={{ marginBottom: "0.5rem" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.62rem", color: T.text3, marginBottom: "0.4rem" }}>
+                                <span>發願進度</span><span style={{ color: T.accent }}>{pct.toFixed(2)}%</span>
+                            </div>
+                            <div style={{ background: T.accentPale, borderRadius: 99, height: 4, overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${progW}%`, background: T.accent, borderRadius: 99, transition: "width 1.2s 0.5s cubic-bezier(0.4,0,0.2,1)" }} />
+                            </div>
+                        </div>
+                        <div style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "0.65rem", color: T.text3, letterSpacing: "3px", marginTop: "1.25rem", fontWeight: 300 }}>
+                            南無大悲觀世音菩薩
+                        </div>
+                        <button onClick={onDismiss} style={{ marginTop: "1rem", padding: "0.45rem 1.5rem", background: "transparent", border: `1px solid ${T.lineStrong}`, borderRadius: 99, fontSize: "0.7rem", color: T.text3, letterSpacing: "1.5px", cursor: "pointer" }}>
+                            關 閉
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // ── SECONDARY SCREENS ─────────────────────────────────────────────────────────
+        function HeartsScreen({ grandTotal, onBack }) {
+            return (
+                <div className="screen-l scroll-soft" style={{ height: "100%", background: T.bg }}>
+                    <div style={{ padding: "1rem 1.25rem", display: "flex", alignItems: "center", gap: "1rem", background: T.surface, borderBottom: `1px solid ${T.line}`, position: "sticky", top: 0 }}>
+                        <button onClick={onBack} className="touch-btn" style={{ fontSize: "1.3rem", background: "none", border: "none", cursor: "pointer" }}>←</button>
+                        <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1rem", fontWeight: 500 }}>大悲十心</span>
+                    </div>
+                    <div style={{ padding: "1rem" }}>
+                        {TEN_HEARTS.map((h, i) => <HeartCard key={h.zh} heart={h} unlocked={grandTotal >= h.unlock} idx={i} />)}
+                    </div>
+                </div>
+            );
+        }
+
+        function ProgressScreen({ me, onBack }) {
+            const gt = me ? me.grandTotal || 0 : 0;
+            const tgt = me ? me.target || 0 : 0;
+            const pct = tgt > 0 ? (gt / tgt) * 100 : 0;
+            return (
+                <div className="screen-l scroll-soft" style={{ height: "100%", background: T.bg }}>
+                    <div style={{ padding: "1rem 1.25rem", background: T.surface, display: "flex", alignItems: "center", gap: "0.8rem", borderBottom: `1px solid ${T.line}`, position: "sticky", top: 0 }}>
+                        <button onClick={onBack} className="touch-btn" style={{ fontSize: "1.3rem", background: "none", border: "none", cursor: "pointer" }}>←</button>
+                        <span style={{ fontFamily: "'Noto Serif SC',serif" }}>發願進度</span>
+                    </div>
+                    <div style={{ padding: "1.5rem", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                        <CircProg pct={pct} size={180}>
+                            <div style={{ textAlign: "center" }}>
+                                <div style={{ fontSize: "1.8rem", fontWeight: 700, fontFamily: "'Noto Serif SC',serif" }}>{pct.toFixed(1)}%</div>
+                                <div style={{ fontSize: "0.6rem", color: T.text3 }}>大悲行者</div>
+                            </div>
+                        </CircProg>
+                        <div style={{ fontSize: "2rem", marginTop: "1rem", fontFamily: "'Noto Serif SC',serif", fontWeight: 700 }}>
+                            <AnimNum value={gt} dur={800} />
+                        </div>
+                        <div style={{ fontSize: "0.7rem", color: T.text3 }}>/ {tgt.toLocaleString()}</div>
+                        <div style={{ width: "100%", marginTop: "1.5rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                            {MILESTONES.map(m => {
+                                const reached = gt >= m.n;
+                                return (
+                                    <div key={m.n} style={{ padding: "0.8rem 1rem", borderRadius: 20, background: T.surface, border: `1px solid ${reached ? T.gold : T.line}` }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                                            <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "0.85rem" }}>{m.n.toLocaleString()} 遍 「{m.label}」</span>
+                                            <span style={{ fontSize: "0.8rem", color: reached ? T.gold : T.text3 }}>{reached ? "✓ 達成" : `差 ${(m.n - gt).toLocaleString()}`}</span>
+                                        </div>
+                                        <PBar pct={Math.min(100, (gt / m.n) * 100)} color={reached ? T.gold : T.accent} bg={T.accentPale} />
+                                        <div style={{ fontSize: "0.65rem", color: T.text3, marginTop: "0.3rem" }}>{m.desc}</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function HistoryScreen({ userName, meRef, monthDataRef, onBack }) {
+            const me = meRef.current;
+            const [monthData, setMonthData] = useState(monthDataRef.current);
+            const [loadingMonths, setLoadingMonths] = useState({});
+            const now = new Date();
+
+            // Build list of year-month pairs.
+            // Hard floor: never show anything before HISTORY_FLOOR_YM (2026-05).
+            // Per-user systemStart is respected if it is *later* than the floor.
+            const getMonths = () => {
+                const userStart = me && me.systemStart ? me.systemStart.substring(0, 7) : null;
+                // Effective floor is whichever is later: the global floor or the user's own start
+                const floor = userStart && userStart > HISTORY_FLOOR_YM ? userStart : HISTORY_FLOOR_YM;
+                const months = [];
+                let cur = new Date(now.getFullYear(), now.getMonth(), 1);
+                for (let i = 0; i < 120; i++) {   // cap at 10 years
+                    const ym = cur.getFullYear() + '-' + pad(cur.getMonth() + 1);
+                    if (ym < floor) break;          // stop as soon as we go before the floor
+                    months.push({ year: cur.getFullYear(), month: cur.getMonth() + 1 });
+                    cur.setMonth(cur.getMonth() - 1);
+                }
+                return months;
+            };
+
+            const byYear = {};
+            getMonths().forEach(m => { if (!byYear[m.year]) byYear[m.year] = []; byYear[m.year].push(m.month); });
+            const years = Object.keys(byYear).sort((a, b) => b - a);
+
+            const [openYear, setOpenYear] = useState(years[0] ? parseInt(years[0]) : null);
+            const [openYM, setOpenYM] = useState(null);
+
+            const loadMonth = (year, month) => {
+                const k = `${year}-${month}`;
+                if (monthDataRef.current[k]) { setMonthData({ ...monthDataRef.current }); return; }
+                setLoadingMonths(lm => ({ ...lm, [k]: true }));
+                api({ action: 'getMonthly', name: userName, year, month }, (data, err) => {
+                    setLoadingMonths(lm => ({ ...lm, [k]: false }));
+                    if (!err && data) {
+                        monthDataRef.current[k] = data;
+                        setMonthData({ ...monthDataRef.current });
+                    }
+                });
+            };
+
+            const openDetail = (year, month) => {
+                const k = `${year}-${month}`;
+                if (openYM === k) { setOpenYM(null); return; }
+                setOpenYM(k);
+                loadMonth(year, month);
+            };
+
+            const wk = ['日', '一', '二', '三', '四', '五', '六'];
+            const today = todayStr();
+
+            return (
+                <div className="screen-l scroll-soft" style={{ height: "100%", background: T.bg }}>
+                    <div style={{ padding: "1rem 1.25rem", background: T.surface, display: "flex", alignItems: "center", gap: "0.8rem", borderBottom: `1px solid ${T.line}`, position: "sticky", top: 0 }}>
+                        <button onClick={onBack} className="touch-btn" style={{ fontSize: "1.3rem", background: "none", border: "none", cursor: "pointer" }}>←</button>
+                        <span style={{ fontFamily: "'Noto Serif SC',serif" }}>持誦明細</span>
+                    </div>
+                    <div style={{ padding: "1rem" }}>
+                        {years.length === 0 && (
+                            <div style={{ textAlign: "center", padding: "3rem 1rem", color: T.text3, fontSize: "0.82rem", fontFamily: "'Noto Serif SC',serif" }}>
+                                暫無記錄
+                            </div>
+                        )}
+                        {years.map(year => {
+                            const isYOpen = openYear === parseInt(year);
+                            const yearTotal = byYear[year].reduce((s, m) => {
+                                const d = monthDataRef.current[`${year}-${m}`];
+                                return s + (d ? d.monthTotal : 0);
+                            }, 0);
+                            return (
+                                <div key={year} style={{ background: T.surface, borderRadius: 20, marginBottom: "0.75rem", overflow: "hidden", border: `1px solid ${T.line}` }}>
+                                    {/* Year row */}
+                                    <div onClick={() => setOpenYear(isYOpen ? null : parseInt(year))}
+                                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", background: T.surface2, cursor: "pointer" }}>
+                                        <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "0.9rem", fontWeight: 400, color: T.text2 }}>{year} 年</span>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                                            <span style={{ fontSize: "0.7rem", color: T.text3 }}>{yearTotal ? yearTotal.toLocaleString() + '遍' : ''}</span>
+                                            <span style={{ fontSize: "0.7rem", color: T.text3, transition: "transform 0.25s", display: "inline-block", transform: isYOpen ? "rotate(180deg)" : "none" }}>▾</span>
+                                        </div>
+                                    </div>
+                                    {/* Month list */}
+                                    {isYOpen && byYear[year].map(month => {
+                                        const k = `${year}-${month}`;
+                                        const mdata = monthData[k];
+                                        const isOpen = openYM === k;
+                                        const isLoading = loadingMonths[k];
+                                        return (
+                                            <div key={month} style={{ borderTop: `1px solid ${T.line}` }}>
+                                                <div onClick={() => openDetail(parseInt(year), month)}
+                                                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.65rem 1.25rem 0.65rem 2rem", cursor: "pointer", background: isOpen ? T.accentPale : "transparent" }}>
+                                                    <span style={{ fontSize: "0.82rem", color: T.text2 }}>{month}月</span>
+                                                    {isLoading
+                                                        ? <Spin size={12} />
+                                                        : <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "0.8rem", color: mdata && mdata.monthTotal > 0 ? T.accent : T.text3 }}>
+                                                            {mdata ? mdata.monthTotal.toLocaleString() + '遍' : <span className="skel" style={{ display: "inline-block", width: 40, height: 14 }} />}
+                                                        </span>}
+                                                </div>
+                                                {isOpen && mdata && (
+                                                    <div style={{ background: T.surface2, borderTop: `1px solid ${T.line}`, padding: "1.25rem" }}>
+                                                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem" }}>
+                                                            <div>
+                                                                <div style={{ fontSize: "0.6rem", color: T.text3, letterSpacing: "1.5px", marginBottom: "0.2rem" }}>{year}年{month}月 合計</div>
+                                                                <div style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1.5rem", fontWeight: 600, color: T.accent, letterSpacing: "-1px" }}>{mdata.monthTotal.toLocaleString()}</div>
+                                                            </div>
+                                                            <div style={{ textAlign: "right" }}>
+                                                                <div style={{ fontSize: "0.6rem", color: T.text3, letterSpacing: "1.5px", marginBottom: "0.2rem" }}>持誦天數</div>
+                                                                <div style={{ fontSize: "0.75rem", color: T.text3 }}>{(mdata.entries || []).length} 天</div>
+                                                            </div>
+                                                        </div>
+                                                        {!(mdata.entries || []).length
+                                                            ? <div style={{ textAlign: "center", padding: "1rem", color: T.text3, fontSize: "0.8rem", fontFamily: "'Noto Serif SC',serif" }}>本月暫無記錄</div>
+                                                            : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem" }}>
+                                                                <thead><tr>
+                                                                    <th style={{ fontSize: "0.6rem", color: T.text3, letterSpacing: "1.5px", padding: "0.4rem 0.5rem", textAlign: "left", borderBottom: `1px solid ${T.line}`, fontWeight: 400 }}>日期</th>
+                                                                    <th style={{ fontSize: "0.6rem", color: T.text3, letterSpacing: "1.5px", padding: "0.4rem 0.5rem", textAlign: "right", borderBottom: `1px solid ${T.line}`, fontWeight: 400 }}>遍數</th>
+                                                                </tr></thead>
+                                                                <tbody>
+                                                                    {[...(mdata.entries || [])].sort((a, b) => b.date.localeCompare(a.date)).map(e => {
+                                                                        const d = new Date(e.date + 'T00:00:00');
+                                                                        const isT = e.date === today;
+                                                                        return (
+                                                                            <tr key={e.date} style={{ background: isT ? T.accentPale : "transparent" }}>
+                                                                                <td style={{ padding: "0.5rem", borderBottom: `1px solid ${T.line}`, color: T.text2 }}>{isT ? '· ' : ''}{e.date.slice(5)} 週{wk[d.getDay()]}</td>
+                                                                                <td style={{ padding: "0.5rem", borderBottom: `1px solid ${T.line}`, textAlign: "right", fontFamily: "'Noto Serif SC',serif", color: T.accent, fontWeight: 500 }}>{e.count.toLocaleString()} 遍</td>
+                                                                            </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                            </table>}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        }
+
+        // ── SUBMIT BLOCK OVERLAY ──────────────────────────────────────────────────────
+        function SubmitBlock({ visible }) {
+            if (!visible) return null;
+            return (
+                <div className="submit-block">
+                    <div className="submit-block__spinner" />
+                    <div className="submit-block__label">正在記錄…</div>
+                </div>
+            );
+        }
+
+        // ── SYNC INDICATOR ────────────────────────────────────────────────────────────
+        function SyncIndicator({ state }) {
+            const { status, text } = state;
+            const dotColor = status === 'ok' ? '#5cb88a' : status === 'loading' ? T.accentLight : T.text3;
+            return (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.62rem", color: T.text3 }}>
+                    <span>{text}</span>
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: dotColor, animation: status === 'loading' ? "pulse 0.9s ease-in-out infinite" : "none" }} />
+                </div>
+            );
+        }
+
+        // ── DATA HELPERS ──────────────────────────────────────────────────────────────
+        function getTodayCount(monthDataRef, user) {
+            const now = new Date();
+            const k = `${now.getFullYear()}-${now.getMonth() + 1}`;
+            const mdata = monthDataRef.current[k];
+            if (!mdata) return 0;
+            const today = todayStr();
+            const entry = (mdata.entries || []).find(e => e.date === today);
+            return entry ? entry.count : 0;
+        }
+
+        function getMonthTotal(monthDataRef) {
+            const now = new Date();
+            const k = `${now.getFullYear()}-${now.getMonth() + 1}`;
+            const mdata = monthDataRef.current[k];
+            return mdata ? mdata.monthTotal || 0 : 0;
+        }
+
+        function getStreak(monthDataRef) {
+            const dateSet = {};
+            Object.values(monthDataRef.current).forEach(mdata => {
+                if (mdata && mdata.entries) mdata.entries.forEach(e => { dateSet[e.date] = e.count; });
+            });
+            let streak = 0;
+            let d = new Date();
+            if (!dateSet[fmtDate(d)]) d.setDate(d.getDate() - 1);
+            for (let i = 0; i < 365; i++) {
+                const ds = fmtDate(d);
+                if (dateSet[ds] && dateSet[ds] > 0) { streak++; d.setDate(d.getDate() - 1); }
+                else break;
+            }
+            return streak;
+        }
+
+        // ── ROOT APP ──────────────────────────────────────────────────────────────────
+        function App() {
+            const [screen, setScreen] = useState("login");
+            const [user, setUser] = useState(null);
+            const meRef = useRef(null);
+            const monthDataRef = useRef({});
+            const [recordOpen, setRecordOpen] = useState(false);
+            const [submitting, setSubmitting] = useState(false);
+            const [success, setSuccess] = useState(null);
+            const [syncState, setSyncState] = useState({ status: "idle", text: "" });
+            const [refreshKey, setRefreshKey] = useState(0);
+
+            const setSS = useCallback((status, text) => setSyncState({ status, text }), []);
+
+            const loadAll = useCallback((userName) => {
+                setSS('loading', '同步中…');
+                api({ action: 'getSummary' }, (data, err) => {
+                    if (err || !data) { setSS('err', '同步失敗'); return; }
+                    const me = (data.summary || []).find(s => nameEq(s.name, userName));
+                    if (!me) { setSS('err', '未找到數據'); return; }
+                    meRef.current = me;
+                    const now = new Date();
+                    api({ action: 'getMonthly', name: userName, year: now.getFullYear(), month: now.getMonth() + 1 }, (mdata, merr) => {
+                        if (!merr && mdata) {
+                            monthDataRef.current[`${now.getFullYear()}-${now.getMonth() + 1}`] = mdata;
+                        }
+                        setSS('ok', '已同步 ' + fmtTime(new Date()));
+                        setRefreshKey(k => k + 1);
+                    });
+                });
+            }, []);
+
+            const onLogin = useCallback((summary) => {
+                meRef.current = summary;
+                setUser(summary);
+                setScreen("home");
+                loadAll(summary.name);
+            }, [loadAll]);
+
+            const onLogout = useCallback(() => {
+                sessionStorage.removeItem('tName');
+                setUser(null); meRef.current = null; monthDataRef.current = {};
+                setScreen("login");
+            }, []);
+
+            const nav = useCallback(dest => {
+                if (dest === "record") { setRecordOpen(true); return; }
+                setScreen(dest);
+            }, []);
+
+            const onSubmitStart = useCallback(() => { setSubmitting(true); }, []);
+
+            const onSubmitSuccess = useCallback((result) => {
+                setSubmitting(false);
+                setRecordOpen(false);
+                setSuccess(result);
+                const now = new Date();
+                delete monthDataRef.current[`${now.getFullYear()}-${now.getMonth() + 1}`];
+            }, []);
+
+            const onSubmitError = useCallback(() => { setSubmitting(false); }, []);
+
+            const onDismissSuccess = useCallback(() => {
+                setSuccess(null);
+                if (user) loadAll(user.name);
+            }, [user, loadAll]);
+
+            return (
+                <>
+                    <style>{GLOBAL_STYLES}</style>
+                    <div style={{ height: "100vh", maxWidth: 520, margin: "0 auto", background: T.bg, position: "relative", overflow: "hidden" }}>
+                        {screen === "login" && <LoginScreen onLogin={onLogin} />}
+                        {screen === "home" && user && (
+                            <HomeScreen
+                                user={user} meRef={meRef} monthDataRef={monthDataRef}
+                                onNav={nav} onLogout={onLogout}
+                                syncState={syncState} setSyncState={setSS}
+                                refreshKey={refreshKey}
+                            />
+                        )}
+                        {screen === "hearts" && (
+                            <HeartsScreen grandTotal={meRef.current ? meRef.current.grandTotal || 0 : 0} onBack={() => setScreen("home")} />
+                        )}
+                        {screen === "progress" && (
+                            <ProgressScreen me={meRef.current} onBack={() => setScreen("home")} />
+                        )}
+                        {screen === "history" && user && (
+                            <HistoryScreen userName={user.name} meRef={meRef} monthDataRef={monthDataRef} onBack={() => setScreen("home")} />
+                        )}
+                        {recordOpen && user && (
+                            <RecordSheet userName={user.name} onClose={() => setRecordOpen(false)} onSubmitSuccess={onSubmitSuccess} onSubmitStart={onSubmitStart} onSubmitError={onSubmitError} />
+                        )}
+                        {success && (
+                            <SuccessOverlay result={success} me={meRef.current} onDismiss={onDismissSuccess} />
+                        )}
+                        <SubmitBlock visible={submitting} />
+                    </div>
+                </>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
