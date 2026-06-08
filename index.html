@@ -799,46 +799,36 @@
             const [earliestYM, setEarliestYM] = useState(null);
             const now = new Date();
 
-            // On mount: find the earliest month that has real data by scanning
-            // backwards via getMonthly until we get two consecutive empty months.
+            // On mount: fire all 12 months in parallel, find the earliest with data.
             useEffect(() => {
-                let found = null;
-                let cur = new Date(now.getFullYear(), now.getMonth(), 1);
-                let emptyStreak = 0;
-
-                const scanNext = () => {
-                    const year = cur.getFullYear();
-                    const month = cur.getMonth() + 1;
+                const months = [];
+                for (let i = 0; i < 12; i++) {
+                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    months.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
+                }
+                let completed = 0;
+                months.forEach(({ year, month }) => {
                     const k = `${year}-${month}`;
-
-                    const process = (data) => {
+                    const done = (data) => {
                         if (data && data.entries && data.entries.length > 0) {
-                            found = k;
-                            emptyStreak = 0;
                             monthDataRef.current[k] = data;
-                            setMonthData({ ...monthDataRef.current });
-                        } else {
-                            emptyStreak++;
                         }
-                        cur.setMonth(cur.getMonth() - 1);
-                        // Stop after 2 consecutive empty months or 36 months back
-                        const monthsBack = (now.getFullYear() - cur.getFullYear()) * 12 + (now.getMonth() - cur.getMonth());
-                        if (emptyStreak >= 2 || monthsBack > 36) {
-                            setEarliestYM(found || `${now.getFullYear()}-${now.getMonth() + 1}`);
-                        } else {
-                            scanNext();
+                        completed++;
+                        if (completed === months.length) {
+                            // Find the earliest month that has data
+                            const withData = months.filter(m => monthDataRef.current[`${m.year}-${m.month}`]);
+                            const earliest = withData.length
+                                ? withData[withData.length - 1]  // months[] goes newest→oldest
+                                : months[0];
+                            setMonthData({ ...monthDataRef.current });
+                            setEarliestYM(`${earliest.year}-${earliest.month}`);
                         }
                     };
-
-                    if (monthDataRef.current[k]) {
-                        process(monthDataRef.current[k]);
-                    } else {
-                        api({ action: 'getMonthly', name: userName, year, month }, (data, err) => {
-                            process(!err && data ? data : { entries: [] });
-                        });
-                    }
-                };
-                scanNext();
+                    if (monthDataRef.current[k]) { done(monthDataRef.current[k]); return; }
+                    api({ action: 'getMonthly', name: userName, year, month }, (data, err) => {
+                        done(!err && data ? data : null);
+                    });
+                });
             }, []);
 
             // Build month list from now down to earliestYM
