@@ -799,18 +799,16 @@
             const now = new Date();
 
             // Build list of year-month pairs.
-            // Hard floor: never show anything before HISTORY_FLOOR_YM (2026-05).
-            // Per-user systemStart is respected if it is *later* than the floor.
+            // Floor = systemStart from the server (the date of the user's very first entry).
+            // Fall back to 10 years if not available.
             const getMonths = () => {
-                const userStart = me && me.systemStart ? me.systemStart.substring(0, 7) : null;
-                // Effective floor is whichever is EARLIER: the user's own start or the global floor
-                const floor = userStart && userStart < HISTORY_FLOOR_YM ? userStart : HISTORY_FLOOR_YM;
+                const floor = me && me.systemStart ? me.systemStart.substring(0, 7) : null;
                 const months = [];
                 let cur = new Date(now.getFullYear(), now.getMonth(), 1);
-                for (let i = 0; i < 120; i++) {   // cap at 10 years
-                    const ym = cur.getFullYear() + '-' + pad(cur.getMonth() + 1);
-                    if (ym < floor) break;          // stop as soon as we go before the floor
+                for (let i = 0; i < 120; i++) {
+                    const ym = `${cur.getFullYear()}-${pad(cur.getMonth() + 1)}`;
                     months.push({ year: cur.getFullYear(), month: cur.getMonth() + 1 });
+                    if (floor && ym <= floor) break;   // stop AT the floor month (inclusive)
                     cur.setMonth(cur.getMonth() - 1);
                 }
                 return months;
@@ -836,12 +834,28 @@
                 });
             };
 
+            // When a year is opened, auto-fetch all its months so totals appear immediately
+            const handleOpenYear = (year) => {
+                const isOpening = openYear !== year;
+                setOpenYear(isOpening ? year : null);
+                if (isOpening && byYear[year]) {
+                    byYear[year].forEach(month => loadMonth(year, month));
+                }
+            };
+
             const openDetail = (year, month) => {
                 const k = `${year}-${month}`;
                 if (openYM === k) { setOpenYM(null); return; }
                 setOpenYM(k);
                 loadMonth(year, month);
             };
+
+            // On mount, auto-fetch all months for the initially-open year
+            useEffect(() => {
+                if (openYear && byYear[openYear]) {
+                    byYear[openYear].forEach(month => loadMonth(openYear, month));
+                }
+            }, []);
 
             const wk = ['日', '一', '二', '三', '四', '五', '六'];
             const today = todayStr();
@@ -867,7 +881,7 @@
                             return (
                                 <div key={year} style={{ background: T.surface, borderRadius: 20, marginBottom: "0.75rem", overflow: "hidden", border: `1px solid ${T.line}` }}>
                                     {/* Year row */}
-                                    <div onClick={() => setOpenYear(isYOpen ? null : parseInt(year))}
+                                    <div onClick={() => handleOpenYear(parseInt(year))}
                                         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", background: T.surface2, cursor: "pointer" }}>
                                         <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1rem", fontWeight: 400, color: T.text2 }}>{year} 年</span>
                                         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -912,7 +926,7 @@
                                                                     <th style={{ fontSize: "0.92rem", color: T.text3, letterSpacing: "1.5px", padding: "0.4rem 0.5rem", textAlign: "right", borderBottom: `1px solid ${T.line}`, fontWeight: 400 }}>遍數</th>
                                                                 </tr></thead>
                                                                 <tbody>
-                                                                    {[...(mdata.entries || [])].sort((a, b) => b.date.localeCompare(a.date)).map(e => {
+                                                                    {[...(mdata.entries || [])].sort((a, b) => a.date.localeCompare(b.date)).map(e => {
                                                                         const d = new Date(e.date + 'T00:00:00');
                                                                         const isT = e.date === today;
                                                                         return (
