@@ -793,46 +793,75 @@
         }
 
         function HistoryScreen({ userName, meRef, monthDataRef, onBack }) {
-            const me = meRef.current;
             const [monthData, setMonthData] = useState(monthDataRef.current);
             const [loadingMonths, setLoadingMonths] = useState({});
+            // earliestYM: "YYYY-M" derived from the actual earliest record in 每日记录
+            const [earliestYM, setEarliestYM] = useState(null);
             const now = new Date();
 
-            // Build list of year-month pairs.
-            // Floor = systemStart from the server (the date of the user's very first entry).
-            // Fall back to 10 years if not available.
-            const getMonths = () => {
-                // systemStart may arrive as DD-MM-YYYY or YYYY-MM-DD — normalise to YYYY-MM
-                let floor = null;
-                if (me && me.systemStart) {
-                    const s = String(me.systemStart).trim();
-                    if (/^\d{2}-\d{2}-\d{4}$/.test(s)) {
-                        // DD-MM-YYYY → YYYY-MM
-                        floor = `${s.slice(6, 10)}-${s.slice(3, 5)}`;
-                    } else if (/^\d{4}-\d{2}/.test(s)) {
-                        // YYYY-MM-DD or YYYY-MM
-                        floor = s.substring(0, 7);
+            // On mount: find the earliest month that has real data by scanning
+            // backwards via getMonthly until we get two consecutive empty months.
+            useEffect(() => {
+                let found = null;
+                let cur = new Date(now.getFullYear(), now.getMonth(), 1);
+                let emptyStreak = 0;
+
+                const scanNext = () => {
+                    const year = cur.getFullYear();
+                    const month = cur.getMonth() + 1;
+                    const k = `${year}-${month}`;
+
+                    const process = (data) => {
+                        if (data && data.entries && data.entries.length > 0) {
+                            found = k;
+                            emptyStreak = 0;
+                            monthDataRef.current[k] = data;
+                            setMonthData({ ...monthDataRef.current });
+                        } else {
+                            emptyStreak++;
+                        }
+                        cur.setMonth(cur.getMonth() - 1);
+                        // Stop after 2 consecutive empty months or 36 months back
+                        const monthsBack = (now.getFullYear() - cur.getFullYear()) * 12 + (now.getMonth() - cur.getMonth());
+                        if (emptyStreak >= 2 || monthsBack > 36) {
+                            setEarliestYM(found || `${now.getFullYear()}-${now.getMonth() + 1}`);
+                        } else {
+                            scanNext();
+                        }
+                    };
+
+                    if (monthDataRef.current[k]) {
+                        process(monthDataRef.current[k]);
+                    } else {
+                        api({ action: 'getMonthly', name: userName, year, month }, (data, err) => {
+                            process(!err && data ? data : { entries: [] });
+                        });
                     }
-                }
-                if (!floor) {
-                    // No systemStart — default to 24 months back as a safe fallback
-                    const fallback = new Date(now.getFullYear(), now.getMonth() - 23, 1);
-                    floor = `${fallback.getFullYear()}-${pad(fallback.getMonth() + 1)}`;
-                }
+                };
+                scanNext();
+            }, []);
+
+            // Build month list from now down to earliestYM
+            const buildMonths = () => {
+                if (!earliestYM) return [];
+                const [ey, em] = earliestYM.split('-').map(Number);
+                const months = [];
+                let cur = new Date(now.getFullYear(), now.getMonth(), 1);
                 for (let i = 0; i < 120; i++) {
-                    const ym = `${cur.getFullYear()}-${pad(cur.getMonth() + 1)}`;
-                    months.push({ year: cur.getFullYear(), month: cur.getMonth() + 1 });
-                    if (floor && ym <= floor) break;   // stop AT the floor month (inclusive)
+                    const y = cur.getFullYear(), m = cur.getMonth() + 1;
+                    months.push({ year: y, month: m });
+                    if (y === ey && m === em) break;
                     cur.setMonth(cur.getMonth() - 1);
                 }
                 return months;
             };
 
+            const allMonths = buildMonths();
             const byYear = {};
-            getMonths().forEach(m => { if (!byYear[m.year]) byYear[m.year] = []; byYear[m.year].push(m.month); });
+            allMonths.forEach(m => { if (!byYear[m.year]) byYear[m.year] = []; byYear[m.year].push(m.month); });
             const years = Object.keys(byYear).sort((a, b) => b - a);
 
-            const [openYear, setOpenYear] = useState(years[0] ? parseInt(years[0]) : null);
+            const [openYear, setOpenYear] = useState(now.getFullYear());
             const [openYM, setOpenYM] = useState(null);
 
             const loadMonth = (year, month) => {
@@ -848,7 +877,6 @@
                 });
             };
 
-            // When a year is opened, auto-fetch all its months so totals appear immediately
             const handleOpenYear = (year) => {
                 const isOpening = openYear !== year;
                 setOpenYear(isOpening ? year : null);
@@ -864,12 +892,12 @@
                 loadMonth(year, month);
             };
 
-            // On mount, auto-fetch all months for the initially-open year
+            // Auto-load current year months on mount
             useEffect(() => {
-                if (openYear && byYear[openYear]) {
-                    byYear[openYear].forEach(month => loadMonth(openYear, month));
+                if (byYear[now.getFullYear()]) {
+                    byYear[now.getFullYear()].forEach(month => loadMonth(now.getFullYear(), month));
                 }
-            }, []);
+            }, [earliestYM]);
 
             const wk = ['日', '一', '二', '三', '四', '五', '六'];
             const today = todayStr();
@@ -881,12 +909,18 @@
                         <span style={{ fontFamily: "'Noto Serif SC',serif" }}>持誦明細</span>
                     </div>
                     <div style={{ padding: "1rem 1rem calc(4rem + env(safe-area-inset-bottom, 0px))" }}>
-                        {years.length === 0 && (
+                        {!earliestYM && (
+                            <div style={{ textAlign: "center", padding: "3rem 1rem", color: T.text3, fontSize: "0.92rem", fontFamily: "'Noto Serif SC',serif", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
+                                <Spin size={20} />
+                                <span>載入記錄中…</span>
+                            </div>
+                        )}
+                        {earliestYM && years.length === 0 && (
                             <div style={{ textAlign: "center", padding: "3rem 1rem", color: T.text3, fontSize: "0.92rem", fontFamily: "'Noto Serif SC',serif" }}>
                                 暫無記錄
                             </div>
                         )}
-                        {years.map(year => {
+                        {earliestYM && years.map(year => {
                             const isYOpen = openYear === parseInt(year);
                             const yearTotal = byYear[year].reduce((s, m) => {
                                 const d = monthDataRef.current[`${year}-${m}`];
