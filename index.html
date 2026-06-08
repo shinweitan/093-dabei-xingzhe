@@ -803,8 +803,8 @@
             // Per-user systemStart is respected if it is *later* than the floor.
             const getMonths = () => {
                 const userStart = me && me.systemStart ? me.systemStart.substring(0, 7) : null;
-                // Effective floor is whichever is later: the global floor or the user's own start
-                const floor = userStart && userStart > HISTORY_FLOOR_YM ? userStart : HISTORY_FLOOR_YM;
+                // Effective floor is whichever is EARLIER: the user's own start or the global floor
+                const floor = userStart && userStart < HISTORY_FLOOR_YM ? userStart : HISTORY_FLOOR_YM;
                 const months = [];
                 let cur = new Date(now.getFullYear(), now.getMonth(), 1);
                 for (let i = 0; i < 120; i++) {   // cap at 10 years
