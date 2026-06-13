@@ -90,7 +90,7 @@
 
         .submit-block__label {
             font-family: 'Noto Serif SC', serif;
-            font-size: 0.82rem;
+            font-size: 1rem;
             letter-spacing: 0.18em;
             color: #F2EEE7;
             opacity: 0.9;
@@ -637,7 +637,10 @@
                             ))}
                         </div>
 
-                        {err && <div style={{ fontSize: "1.05rem", color: "#8B2020", background: "#FDF1F1", padding: "0.6rem", borderRadius: 12, marginBottom: "0.8rem" }}>{err}</div>}
+                        {err && <div style={{
+                            fontSize: "1.2rem", color: "#8B2020", background: "#FDF1F1", padding: "0.6rem",
+                            borderRadius: 12, marginBottom: "0.8rem"
+                        }}>{err}</div>}
 
                         <button onClick={submit} disabled={loading || !parseInt(count)} className="touch-btn"
                             style={{ width: "100%", padding: "1rem", background: (!parseInt(count) || loading) ? T.accentSoft : T.sacredGrad, color: (!parseInt(count) || loading) ? T.accent : "white", borderRadius: 40, border: "none", fontSize: "1.05rem", fontWeight: 600, letterSpacing: "0.1em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", cursor: "pointer" }}>
