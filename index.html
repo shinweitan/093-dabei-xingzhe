@@ -8,7 +8,6 @@
     <script src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- OpenCC-js: production-grade Traditional ↔ Simplified Chinese converter -->
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/uni.js"></script>
     <style>
         *,
@@ -29,20 +28,16 @@
             background: #F2EEE7;
         }
 
-        /* ── Mobile safe-area & dynamic viewport ── */
-        /* Respect iPhone notch / home-bar insets */
         :root {
             --sab: env(safe-area-inset-bottom, 0px);
             --sat: env(safe-area-inset-top, 0px);
         }
 
-        /* dvh: collapses with browser chrome so content never hides behind address bar */
         .full-height {
             height: 100vh;
             height: 100dvh;
         }
 
-        /* Scrollable areas need bottom padding equal to the home-bar height */
         .safe-scroll-bottom {
             padding-bottom: calc(5rem + var(--sab)) !important;
         }
@@ -68,7 +63,6 @@
             -webkit-overflow-scrolling: touch;
         }
 
-        /* Full-page submission lock — prevents double-tap / background interaction */
         .submit-block {
             position: fixed;
             inset: 0;
@@ -83,7 +77,6 @@
             gap: 1rem;
             animation: fadeIn 0.18s ease both;
             pointer-events: all;
-            /* blocks all clicks beneath */
         }
 
         .submit-block__spinner {
@@ -113,8 +106,6 @@
 
         // ── CONFIG ───────────────────────────────────────────────────────────────────
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwaVnAAJUnOQrUxYSGm9QbpsNHmhpY_ItykKtix9ys0VfaYBaJrfbsLvWb8bkdNCh5mew/exec';
-
-        // Hard floor: no history before this month is shown in 持誦明細
         const HISTORY_FLOOR_YM = '2026-05';
 
         // ── SPIRITUAL CONTENT ────────────────────────────────────────────────────────
@@ -178,12 +169,6 @@
 `;
 
         // ── CHAR UTILS ────────────────────────────────────────────────────────────────
-        // OpenCC-js uni.js: Converter() returns a Promise<function>, not a function.
-        // We initialise it once at startup and store the resolved converter.
-        // While it is loading we fall back to a built-in t2s map covering common
-        // Chinese name characters so login never silently fails.
-
-        // Built-in Traditional→Simplified map (common name + UI characters)
         const T2S_MAP = {
             '愛': '爱', '寶': '宝', '備': '备', '筆': '笔', '邊': '边', '標': '标', '錶': '表',
             '別': '别', '賓': '宾', '補': '补', '財': '财', '參': '参', '產': '产', '場': '场',
@@ -211,7 +196,6 @@
             '雜': '杂', '張': '张', '這': '这', '針': '针', '鎮': '镇', '正': '正', '證': '证',
             '製': '制', '鐘': '钟', '種': '种', '壯': '壮', '準': '准', '資': '资', '總': '总',
             '鄒': '邹', '組': '组', '最': '最',
-            // extra common name chars
             '偉': '伟', '俊': '俊', '婷': '婷', '慧': '慧', '雅': '雅', '玲': '玲', '燕': '燕',
             '鵬': '鹏', '輝': '辉', '華': '华', '榮': '荣', '傑': '杰', '彬': '彬', '琳': '琳',
         };
@@ -220,8 +204,7 @@
             return String(s).split('').map(c => T2S_MAP[c] || c).join('');
         }
 
-        // Async init: resolve the OpenCC converter once and cache it
-        let _openccConvert = null;   // null = not ready yet; false = unavailable
+        let _openccConvert = null;
         (async () => {
             try {
                 const fn = await OpenCC.Converter({ from: 'tw', to: 'cn' });
@@ -232,11 +215,9 @@
 
         function toSimplified(s) {
             const str = String(s);
-            // If OpenCC is ready, use it (comprehensive coverage)
             if (typeof _openccConvert === 'function') {
                 try { return _openccConvert(str); } catch (e) { }
             }
-            // Fallback: built-in map (covers common name characters)
             return builtinT2S(str);
         }
 
@@ -677,10 +658,10 @@
             const [vis, setVis] = useState(false);
             const [progW, setProgW] = useState(0);
             const { count, date } = result;
-            const newGrand = (me ? me.grandTotal || 0 : 0) + count;
+            const newGrand = (me ? me.grandTotal || 0 : 0);
             const tgt = me ? me.target || 0 : 0;
             const pct = tgt > 0 ? Math.min(100, newGrand / tgt * 100) : 0;
-            const isNew100k = newGrand >= 100000 && (me ? me.grandTotal < 100000 : false);
+            const isNew100k = newGrand >= 100000 && (me ? (me.grandTotal - count) < 100000 : false);
 
             useEffect(() => {
                 const t1 = setTimeout(() => setVis(true), 20);
@@ -712,7 +693,7 @@
                             </div>
                             <div style={{ flex: 1, background: T.surface2, borderRadius: 16, padding: "1rem 0.75rem" }}>
                                 <div style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1.5rem", fontWeight: 600, letterSpacing: "-1px" }}>
-                                    {me ? Math.max(0, (me.remaining || 0) - count).toLocaleString() : '—'}
+                                    {me ? Math.max(0, (me.remaining || 0)).toLocaleString() : '—'}
                                 </div>
                                 <div style={{ fontSize: "0.58rem", color: T.text3, letterSpacing: "1.5px", marginTop: "0.3rem" }}>還要持誦</div>
                             </div>
@@ -793,65 +774,30 @@
         }
 
         function HistoryScreen({ userName, meRef, monthDataRef, onBack }) {
+            const me = meRef.current;
             const [monthData, setMonthData] = useState(monthDataRef.current);
             const [loadingMonths, setLoadingMonths] = useState({});
-            // earliestYM: "YYYY-M" derived from the actual earliest record in 每日记录
-            const [earliestYM, setEarliestYM] = useState(null);
             const now = new Date();
 
-            // On mount: fire all 12 months in parallel, find the earliest with data.
-            useEffect(() => {
-                const months = [];
-                for (let i = 0; i < 12; i++) {
-                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                    months.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
-                }
-                let completed = 0;
-                months.forEach(({ year, month }) => {
-                    const k = `${year}-${month}`;
-                    const done = (data) => {
-                        if (data && data.entries && data.entries.length > 0) {
-                            monthDataRef.current[k] = data;
-                        }
-                        completed++;
-                        if (completed === months.length) {
-                            // Find the earliest month that has data
-                            const withData = months.filter(m => monthDataRef.current[`${m.year}-${m.month}`]);
-                            const earliest = withData.length
-                                ? withData[withData.length - 1]  // months[] goes newest→oldest
-                                : months[0];
-                            setMonthData({ ...monthDataRef.current });
-                            setEarliestYM(`${earliest.year}-${earliest.month}`);
-                        }
-                    };
-                    if (monthDataRef.current[k]) { done(monthDataRef.current[k]); return; }
-                    api({ action: 'getMonthly', name: userName, year, month }, (data, err) => {
-                        done(!err && data ? data : null);
-                    });
-                });
-            }, []);
-
-            // Build month list from now down to earliestYM
-            const buildMonths = () => {
-                if (!earliestYM) return [];
-                const [ey, em] = earliestYM.split('-').map(Number);
+            const getMonths = () => {
+                const userStart = me && me.systemStart ? me.systemStart.substring(0, 7) : null;
+                const floor = userStart && userStart < HISTORY_FLOOR_YM ? userStart : HISTORY_FLOOR_YM;
                 const months = [];
                 let cur = new Date(now.getFullYear(), now.getMonth(), 1);
                 for (let i = 0; i < 120; i++) {
-                    const y = cur.getFullYear(), m = cur.getMonth() + 1;
-                    months.push({ year: y, month: m });
-                    if (y === ey && m === em) break;
+                    const ym = cur.getFullYear() + '-' + pad(cur.getMonth() + 1);
+                    if (ym < floor) break;
+                    months.push({ year: cur.getFullYear(), month: cur.getMonth() + 1 });
                     cur.setMonth(cur.getMonth() - 1);
                 }
                 return months;
             };
 
-            const allMonths = buildMonths();
             const byYear = {};
-            allMonths.forEach(m => { if (!byYear[m.year]) byYear[m.year] = []; byYear[m.year].push(m.month); });
+            getMonths().forEach(m => { if (!byYear[m.year]) byYear[m.year] = []; byYear[m.year].push(m.month); });
             const years = Object.keys(byYear).sort((a, b) => b - a);
 
-            const [openYear, setOpenYear] = useState(now.getFullYear());
+            const [openYear, setOpenYear] = useState(years[0] ? parseInt(years[0]) : null);
             const [openYM, setOpenYM] = useState(null);
 
             const loadMonth = (year, month) => {
@@ -867,27 +813,12 @@
                 });
             };
 
-            const handleOpenYear = (year) => {
-                const isOpening = openYear !== year;
-                setOpenYear(isOpening ? year : null);
-                if (isOpening && byYear[year]) {
-                    byYear[year].forEach(month => loadMonth(year, month));
-                }
-            };
-
             const openDetail = (year, month) => {
                 const k = `${year}-${month}`;
                 if (openYM === k) { setOpenYM(null); return; }
                 setOpenYM(k);
                 loadMonth(year, month);
             };
-
-            // Auto-load current year months on mount
-            useEffect(() => {
-                if (byYear[now.getFullYear()]) {
-                    byYear[now.getFullYear()].forEach(month => loadMonth(now.getFullYear(), month));
-                }
-            }, [earliestYM]);
 
             const wk = ['日', '一', '二', '三', '四', '五', '六'];
             const today = todayStr();
@@ -899,18 +830,12 @@
                         <span style={{ fontFamily: "'Noto Serif SC',serif" }}>持誦明細</span>
                     </div>
                     <div style={{ padding: "1rem 1rem calc(4rem + env(safe-area-inset-bottom, 0px))" }}>
-                        {!earliestYM && (
-                            <div style={{ textAlign: "center", padding: "3rem 1rem", color: T.text3, fontSize: "0.92rem", fontFamily: "'Noto Serif SC',serif", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
-                                <Spin size={20} />
-                                <span>載入記錄中…</span>
-                            </div>
-                        )}
-                        {earliestYM && years.length === 0 && (
+                        {years.length === 0 && (
                             <div style={{ textAlign: "center", padding: "3rem 1rem", color: T.text3, fontSize: "0.92rem", fontFamily: "'Noto Serif SC',serif" }}>
                                 暫無記錄
                             </div>
                         )}
-                        {earliestYM && years.map(year => {
+                        {years.map(year => {
                             const isYOpen = openYear === parseInt(year);
                             const yearTotal = byYear[year].reduce((s, m) => {
                                 const d = monthDataRef.current[`${year}-${m}`];
@@ -918,8 +843,7 @@
                             }, 0);
                             return (
                                 <div key={year} style={{ background: T.surface, borderRadius: 20, marginBottom: "0.75rem", overflow: "hidden", border: `1px solid ${T.line}` }}>
-                                    {/* Year row */}
-                                    <div onClick={() => handleOpenYear(parseInt(year))}
+                                    <div onClick={() => setOpenYear(isYOpen ? null : parseInt(year))}
                                         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", background: T.surface2, cursor: "pointer" }}>
                                         <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1rem", fontWeight: 400, color: T.text2 }}>{year} 年</span>
                                         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -927,7 +851,6 @@
                                             <span style={{ fontSize: "1rem", color: T.text3, transition: "transform 0.25s", display: "inline-block", transform: isYOpen ? "rotate(180deg)" : "none" }}>▾</span>
                                         </div>
                                     </div>
-                                    {/* Month list */}
                                     {isYOpen && byYear[year].map(month => {
                                         const k = `${year}-${month}`;
                                         const mdata = monthData[k];
@@ -964,7 +887,7 @@
                                                                     <th style={{ fontSize: "0.92rem", color: T.text3, letterSpacing: "1.5px", padding: "0.4rem 0.5rem", textAlign: "right", borderBottom: `1px solid ${T.line}`, fontWeight: 400 }}>遍數</th>
                                                                 </tr></thead>
                                                                 <tbody>
-                                                                    {[...(mdata.entries || [])].sort((a, b) => a.date.localeCompare(b.date)).map(e => {
+                                                                    {[...(mdata.entries || [])].sort((a, b) => b.date.localeCompare(a.date)).map(e => {
                                                                         const d = new Date(e.date + 'T00:00:00');
                                                                         const isT = e.date === today;
                                                                         return (
@@ -1096,22 +1019,70 @@
                 setScreen(dest);
             }, []);
 
-            const onSubmitStart = useCallback(() => { setSubmitting(true); }, []);
+            const onSubmitStart = useCallback(() => {
+                setSubmitting(true);
+            }, []);
 
+            // ── FIX: optimistic update + immediate background reload ──────────────────
             const onSubmitSuccess = useCallback((result) => {
                 setSubmitting(false);
                 setRecordOpen(false);
-                setSuccess(result);
+
+                // 1. Optimistically update meRef so the success overlay and home
+                //    screen both show the new total instantly — no waiting for API.
+                if (meRef.current) {
+                    const prev = meRef.current.grandTotal || 0;
+                    const prevRemaining = meRef.current.remaining || 0;
+                    meRef.current = {
+                        ...meRef.current,
+                        grandTotal: prev + result.count,
+                        remaining: Math.max(0, prevRemaining - result.count),
+                    };
+                }
+
+                // 2. Optimistically update today's month cache so today count is right.
                 const now = new Date();
-                delete monthDataRef.current[`${now.getFullYear()}-${now.getMonth() + 1}`];
+                const mk = `${now.getFullYear()}-${now.getMonth() + 1}`;
+                const mdata = monthDataRef.current[mk];
+                if (mdata) {
+                    const todayDate = todayStr();
+                    const entries = mdata.entries ? [...mdata.entries] : [];
+                    const idx = entries.findIndex(e => e.date === todayDate);
+                    if (idx >= 0) {
+                        // modify mode: replace the old count
+                        const oldCount = entries[idx].count;
+                        entries[idx] = { ...entries[idx], count: result.wasModify ? result.count : oldCount + result.count };
+                        mdata.monthTotal = (mdata.monthTotal || 0) - oldCount + entries[idx].count;
+                    } else {
+                        entries.push({ date: todayDate, count: result.count });
+                        mdata.monthTotal = (mdata.monthTotal || 0) + result.count;
+                    }
+                    monthDataRef.current[mk] = { ...mdata, entries };
+                } else {
+                    // No month data cached yet — just bust it so loadAll re-fetches
+                    delete monthDataRef.current[mk];
+                }
+
+                // 3. Show success overlay with already-updated numbers.
+                setSuccess(result);
+
+                // 4. Trigger home screen re-render immediately with optimistic data.
+                setRefreshKey(k => k + 1);
+
+                // 5. Kick off background sync in parallel — will correct anything if needed.
+                if (meRef.current) loadAll(meRef.current.name);
+
+            }, [loadAll]);
+            // ─────────────────────────────────────────────────────────────────────────
+
+            const onSubmitError = useCallback(() => {
+                setSubmitting(false);
             }, []);
 
-            const onSubmitError = useCallback(() => { setSubmitting(false); }, []);
-
+            // No need to reload on dismiss — sync is already in flight from onSubmitSuccess.
             const onDismissSuccess = useCallback(() => {
                 setSuccess(null);
-                if (user) loadAll(user.name);
-            }, [user, loadAll]);
+            }, []);
 
             return (
                 <>
