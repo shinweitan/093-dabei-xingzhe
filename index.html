@@ -343,13 +343,11 @@
 
         // ── LOGIN SCREEN ──────────────────────────────────────────────────────────────
         function LoginScreen({ onLogin }) {
-            const [name, setName] = useState(() => sessionStorage.getItem('tName') || "");
+            const [name, setName] = useState("");
             const [loading, setLoading] = useState(false);
             const [err, setErr] = useState("");
 
             useEffect(() => {
-                const saved = sessionStorage.getItem('tName');
-                if (saved) { setName(saved); doVerify(saved); }
             }, []);
 
             const doVerify = useCallback((nameVal) => {
