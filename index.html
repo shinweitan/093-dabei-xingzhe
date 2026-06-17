@@ -8,7 +8,6 @@
     <script src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/uni.min.js"></script> -->
     <style>
         *,
         *::before,
@@ -204,21 +203,9 @@
             return String(s).split('').map(c => T2S_MAP[c] || c).join('');
         }
 
-        let _openccConvert = null;
-        (async () => {
-            try {
-                const fn = await OpenCC.Converter({ from: 'tw', to: 'cn' });
-                if (typeof fn === 'function') { _openccConvert = fn; }
-                else { _openccConvert = false; }
-            } catch (e) { _openccConvert = false; }
-        })();
 
         function toSimplified(s) {
-            const str = String(s);
-            if (typeof _openccConvert === 'function') {
-                try { return _openccConvert(str); } catch (e) { }
-            }
-            return builtinT2S(str);
+            return builtinT2S(String(s));
         }
 
         function nameEq(a, b) {
