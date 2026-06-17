@@ -7,7 +7,7 @@
     <title>大悲行者 · 靈鷲山 | 觀音法門修持</title>
     <script src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.29.7/babel.min.js"></script>
     <style>
         *,
         *::before,
@@ -104,6 +104,7 @@
         const { useState, useEffect, useRef, useCallback } = React;
 
         // ── CONFIG ───────────────────────────────────────────────────────────────────
+        // ⚠️  PASTE YOUR NEW GOOGLE APPS SCRIPT /exec URL BELOW  ⚠️
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwaVnAAJUnOQrUxYSGm9QbpsNHmhpY_ItykKtix9ys0VfaYBaJrfbsLvWb8bkdNCh5mew/exec';
         const HISTORY_FLOOR_YM = '2026-05';
 
@@ -203,7 +204,10 @@
             return String(s).split('').map(c => T2S_MAP[c] || c).join('');
         }
 
-
+        // ── FIX: OpenCC removed — use built-in map only ──────────────────────────────
+        // The OpenCC CDN script was commented out but the code still referenced
+        // the global OpenCC object, causing a ReferenceError that crashed React
+        // before anything rendered.  We now use only the built-in T2S_MAP above.
         function toSimplified(s) {
             return builtinT2S(String(s));
         }
@@ -211,6 +215,7 @@
         function nameEq(a, b) {
             return toSimplified(String(a).trim()) === toSimplified(String(b).trim());
         }
+
         const pad = n => n < 10 ? '0' + n : '' + n;
         const fmtDate = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
         const todayStr = () => fmtDate(new Date());
@@ -334,9 +339,6 @@
             const [loading, setLoading] = useState(false);
             const [err, setErr] = useState("");
 
-            useEffect(() => {
-            }, []);
-
             const doVerify = useCallback((nameVal) => {
                 const t = (nameVal || name).trim();
                 if (!t) { setErr("請輸入您的中文姓名"); return; }
@@ -432,12 +434,8 @@
                         </div>
 
                         {/* Hero grand total */}
-
-
                         <div style={{ background: T.surface, borderRadius: 32, padding: "1.8rem", marginBottom: "1.25rem", boxShadow: "0 6px 24px rgba(0,0,0,0.04)", animation: "fadeUp 0.4s 0.05s ease both" }}>
                             {me ? <>
-
-
                                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem", marginBottom: "1.25rem" }}>
                                     <div style={{ background: T.goldPale, border: `1px solid ${T.goldSoft}`, borderRadius: 14, padding: "0.6rem 0.8rem" }}>
                                         <div style={{ fontSize: "0.75rem", color: T.gold, letterSpacing: "2px", marginBottom: "0.2rem" }}>發願年限</div>
@@ -463,9 +461,6 @@
                                     </div>
                                 )}
                                 {isXingZhe && <div style={{ marginTop: "1rem", textAlign: "center", color: T.gold, fontFamily: "'Noto Serif SC',serif" }}>✦ 大悲行者 ✦</div>}
-
-
-
                             </> : (
                                 <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
                                     <div className="skel" style={{ height: 20, width: "60%" }} />
@@ -474,7 +469,6 @@
                                 </div>
                             )}
                         </div>
-
 
                         {/* Today */}
                         <div style={{ background: T.surface, borderRadius: 32, padding: "1.5rem", marginBottom: "1.25rem", animation: "fadeUp 0.4s 0.1s ease both" }}>
@@ -635,10 +629,7 @@
                             ))}
                         </div>
 
-                        {err && <div style={{
-                            fontSize: "1.2rem", color: "#8B2020", background: "#FDF1F1", padding: "0.6rem",
-                            borderRadius: 12, marginBottom: "0.8rem"
-                        }}>{err}</div>}
+                        {err && <div style={{ fontSize: "1.2rem", color: "#8B2020", background: "#FDF1F1", padding: "0.6rem", borderRadius: 12, marginBottom: "0.8rem" }}>{err}</div>}
 
                         <button onClick={submit} disabled={loading || !parseInt(count)} className="touch-btn"
                             style={{ width: "100%", padding: "1rem", background: (!parseInt(count) || loading) ? T.accentSoft : T.sacredGrad, color: (!parseInt(count) || loading) ? T.accent : "white", borderRadius: 40, border: "none", fontSize: "1.05rem", fontWeight: 600, letterSpacing: "0.1em", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", cursor: "pointer" }}>
@@ -1024,13 +1015,10 @@
                 setSubmitting(true);
             }, []);
 
-            // ── FIX: optimistic update + immediate background reload ──────────────────
             const onSubmitSuccess = useCallback((result) => {
                 setSubmitting(false);
                 setRecordOpen(false);
 
-                // 1. Optimistically update meRef so the success overlay and home
-                //    screen both show the new total instantly — no waiting for API.
                 if (meRef.current) {
                     const prev = meRef.current.grandTotal || 0;
                     const prevRemaining = meRef.current.remaining || 0;
@@ -1041,7 +1029,6 @@
                     };
                 }
 
-                // 2. Optimistically update today's month cache so today count is right.
                 const now = new Date();
                 const mk = `${now.getFullYear()}-${now.getMonth() + 1}`;
                 const mdata = monthDataRef.current[mk];
@@ -1050,7 +1037,6 @@
                     const entries = mdata.entries ? [...mdata.entries] : [];
                     const idx = entries.findIndex(e => e.date === todayDate);
                     if (idx >= 0) {
-                        // modify mode: replace the old count
                         const oldCount = entries[idx].count;
                         entries[idx] = { ...entries[idx], count: result.wasModify ? result.count : oldCount + result.count };
                         mdata.monthTotal = (mdata.monthTotal || 0) - oldCount + entries[idx].count;
@@ -1060,27 +1046,19 @@
                     }
                     monthDataRef.current[mk] = { ...mdata, entries };
                 } else {
-                    // No month data cached yet — just bust it so loadAll re-fetches
                     delete monthDataRef.current[mk];
                 }
 
-                // 3. Show success overlay with already-updated numbers.
                 setSuccess(result);
-
-                // 4. Trigger home screen re-render immediately with optimistic data.
                 setRefreshKey(k => k + 1);
-
-                // 5. Kick off background sync in parallel — will correct anything if needed.
                 if (meRef.current) loadAll(meRef.current.name);
 
             }, [loadAll]);
-            // ─────────────────────────────────────────────────────────────────────────
 
             const onSubmitError = useCallback(() => {
                 setSubmitting(false);
             }, []);
 
-            // No need to reload on dismiss — sync is already in flight from onSubmitSuccess.
             const onDismissSuccess = useCallback(() => {
                 setSuccess(null);
             }, []);
