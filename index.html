@@ -793,7 +793,8 @@
         function HistoryScreen({ userName, meRef, monthDataRef, onBack }) {
             const me = meRef.current;
             const [monthData, setMonthData] = useState(monthDataRef.current);
-            const [loadingMonths, setLoadingMonths] = useState({});
+            const [loadingYears, setLoadingYears] = useState({});
+            const loadedYearsRef = useRef({}); // year -> true once fetched
             const now = new Date();
 
             const getMonths = () => {
@@ -817,24 +818,39 @@
             const [openYear, setOpenYear] = useState(years[0] ? parseInt(years[0]) : null);
             const [openYM, setOpenYM] = useState(null);
 
-            const loadMonth = (year, month) => {
-                const k = `${year}-${month}`;
-                if (monthDataRef.current[k]) { setMonthData({ ...monthDataRef.current }); return; }
-                setLoadingMonths(lm => ({ ...lm, [k]: true }));
-                api({ action: 'getMonthly', name: userName, year, month }, (data, err) => {
-                    setLoadingMonths(lm => ({ ...lm, [k]: false }));
-                    if (!err && data) {
-                        monthDataRef.current[k] = data;
-                        setMonthData({ ...monthDataRef.current });
+            // Fetch a whole year's worth of months in ONE request.
+            const loadYear = useCallback((year) => {
+                if (loadedYearsRef.current[year]) return;
+                loadedYearsRef.current[year] = true; // mark immediately to dedupe concurrent calls
+                setLoadingYears(ly => ({ ...ly, [year]: true }));
+                api({ action: 'getYearData', name: userName, year }, (data, err) => {
+                    setLoadingYears(ly => ({ ...ly, [year]: false }));
+                    if (err || !data) {
+                        loadedYearsRef.current[year] = false; // allow retry on failure
+                        return;
                     }
+                    Object.keys(data.months).forEach(m => {
+                        monthDataRef.current[`${year}-${m}`] = data.months[m];
+                    });
+                    setMonthData({ ...monthDataRef.current });
                 });
+            }, [userName]);
+
+            // Prefetch the initially-open year on mount.
+            useEffect(() => {
+                if (openYear) loadYear(openYear);
+            }, []); // eslint-disable-line
+
+            const toggleYear = (year) => {
+                const next = openYear === year ? null : year;
+                setOpenYear(next);
+                if (next) loadYear(next); // fetch (or no-op if cached) as soon as a year expands
             };
 
             const openDetail = (year, month) => {
                 const k = `${year}-${month}`;
-                if (openYM === k) { setOpenYM(null); return; }
-                setOpenYM(k);
-                loadMonth(year, month);
+                setOpenYM(openYM === k ? null : k);
+                // no fetch here anymore — data already arrived with the year batch
             };
 
             const wk = ['日', '一', '二', '三', '四', '五', '六'];
@@ -853,18 +869,22 @@
                             </div>
                         )}
                         {years.map(year => {
-                            const isYOpen = openYear === parseInt(year);
+                            const yearInt = parseInt(year);
+                            const isYOpen = openYear === yearInt;
+                            const isYearLoading = loadingYears[yearInt];
                             const yearTotal = byYear[year].reduce((s, m) => {
                                 const d = monthDataRef.current[`${year}-${m}`];
                                 return s + (d ? d.monthTotal : 0);
                             }, 0);
                             return (
                                 <div key={year} style={{ background: T.surface, borderRadius: 20, marginBottom: "0.75rem", overflow: "hidden", border: `1px solid ${T.line}` }}>
-                                    <div onClick={() => setOpenYear(isYOpen ? null : parseInt(year))}
+                                    <div onClick={() => toggleYear(yearInt)}
                                         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", background: T.surface2, cursor: "pointer" }}>
                                         <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1rem", fontWeight: 400, color: T.text2 }}>{year} 年</span>
                                         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                                            <span style={{ fontSize: "1rem", color: T.text3 }}>{yearTotal ? yearTotal.toLocaleString() + '遍' : ''}</span>
+                                            {isYearLoading
+                                                ? <Spin size={12} />
+                                                : <span style={{ fontSize: "1rem", color: T.text3 }}>{yearTotal ? yearTotal.toLocaleString() + '遍' : ''}</span>}
                                             <span style={{ fontSize: "1rem", color: T.text3, transition: "transform 0.25s", display: "inline-block", transform: isYOpen ? "rotate(180deg)" : "none" }}>▾</span>
                                         </div>
                                     </div>
@@ -872,19 +892,19 @@
                                         const k = `${year}-${month}`;
                                         const mdata = monthData[k];
                                         const isOpen = openYM === k;
-                                        const isLoading = loadingMonths[k];
                                         return (
                                             <div key={month} style={{ borderTop: `1px solid ${T.line}` }}>
-                                                <div onClick={() => openDetail(parseInt(year), month)}
+                                                <div onClick={() => openDetail(yearInt, month)}
                                                     style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.65rem 1.25rem 0.65rem 2rem", cursor: "pointer", background: isOpen ? T.accentPale : "transparent" }}>
                                                     <span style={{ fontSize: "0.92rem", color: T.text2 }}>{month}月</span>
-                                                    {isLoading
-                                                        ? <Spin size={12} />
+                                                    {isYearLoading && !mdata
+                                                        ? <span className="skel" style={{ display: "inline-block", width: 40, height: 14 }} />
                                                         : <span style={{ fontFamily: "'Noto Serif SC',serif", fontSize: "1rem", color: mdata && mdata.monthTotal > 0 ? T.accent : T.text3 }}>
-                                                            {mdata ? mdata.monthTotal.toLocaleString() + '遍' : <span className="skel" style={{ display: "inline-block", width: 40, height: 14 }} />}
+                                                            {mdata ? mdata.monthTotal.toLocaleString() + '遍' : '0遍'}
                                                         </span>}
                                                 </div>
                                                 {isOpen && mdata && (
+                                                    /* ...unchanged detail table body... */
                                                     <div style={{ background: T.surface2, borderTop: `1px solid ${T.line}`, padding: "1.25rem" }}>
                                                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem" }}>
                                                             <div>
@@ -928,7 +948,6 @@
                 </div>
             );
         }
-
         // ── SUBMIT BLOCK OVERLAY ──────────────────────────────────────────────────────
         function SubmitBlock({ visible }) {
             if (!visible) return null;
