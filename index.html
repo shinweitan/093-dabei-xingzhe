@@ -581,10 +581,15 @@
             const [modifyMode, setModifyMode] = useState(false);
             const [checkDone, setCheckDone] = useState(false);
 
+            const dateRef = useRef(date);
+            dateRef.current = date; // always reflects the *current* selection, even mid-render
+
             useEffect(() => {
                 if (!date || !userName) return;
                 setModifyMode(false); setCheckDone(false); setErr("");
+                const requestDate = date; // snapshot the date this request is for
                 api({ action: 'checkEntry', name: userName, date }, (data, apiErr) => {
+                    if (requestDate !== dateRef.current) return; // stale response — user already changed date, ignore
                     if (apiErr) return;
                     if (data && data.exists) {
                         if (!count) setCount(String(data.count || ""));
